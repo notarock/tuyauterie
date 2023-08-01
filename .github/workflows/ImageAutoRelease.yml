@@ -41,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ inputs.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ inputs.REGISTRY_URL }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
