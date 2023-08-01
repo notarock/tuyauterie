@@ -1,0 +1,52 @@
+name: Reusable Docker build and publish workflow
+on:
+  workflow_call:
+    inputs:
+      REGISTRY_URL:
+        description: Container registry URL. Defaults to ghcr.io.
+        required: false
+        default: ghcr.io
+        type: string
+      REGISTRY_USERNAME:
+        description: Username to authenticate to the container registry.
+        default: ${{ github.actor }}
+        type: string
+    secrets:
+      REGISTRY_TOKEN:
+        description: Token user to authenticate to the container registry.
+        required: true
+
+env:
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ inputs.REGISTRY_URL }}
+          username: ${{ inputs.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ inputs.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
