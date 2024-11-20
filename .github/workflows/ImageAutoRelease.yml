@@ -19,6 +19,9 @@ on:
       REGISTRY_TOKEN:
         description: Token user to authenticate to the container registry.
         required: true
+      EXTRA_COMMAND_SECRET:
+        description: Secret to pass to the extra command, if any.
+        required: false
 
 env:
   IMAGE_NAME: ${{ github.repository }}
@@ -51,6 +54,8 @@ jobs:
 
       - name: Execute EXTRA_COMMAND (if provided)
         if: ${{ inputs.EXTRA_COMMAND != '' }}
+        env:
+          EXTRA_COMMAND_SECRET: ${{ secrets.EXTRA_COMMAND_SECRET }}
         run: ${{ inputs.EXTRA_COMMAND }}
 
       - name: Build and push Docker image
