@@ -6,9 +6,6 @@ on:
       version:
         required: true
         type: string
-      gitops-token:
-        required: true
-        type: string
       repository:
         required: true
         type: string
@@ -16,6 +13,11 @@ on:
       deployment-path:
         required: true
         type: string
+    secrets:
+      gitops-token:
+        description: Token user to authenticate to the container registry.
+        required: true
+
 
 jobs:
   rolling-deployment:
@@ -29,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          token: ${{ inputs.gitops-token }}
+          token: ${{ secrets.gitops-token }}
           repository: ${{ inputs.repository }}
 
       - name: Create local changes
@@ -43,6 +45,6 @@ jobs:
         uses: actions-js/push@master
         with:
           coauthor_name: ${{ github.actor }}
-          github_token: ${{ inputs.gitops-token }}
+          github_token: ${{ secrets.gitops-token }}
           repository: ${{ inputs.repository }}
           message: "chore: autopublish ${{ inputs.deployment-path }} ${{ inputs.version }}"
