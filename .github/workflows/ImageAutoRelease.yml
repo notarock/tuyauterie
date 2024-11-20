@@ -22,6 +22,10 @@ on:
       EXTRA_COMMAND_SECRET:
         description: Secret to pass to the extra command, if any.
         required: false
+    outputs:
+      version:
+        description: "Version of the image that was pushed"
+        value: ${{ jobs.build-and-push-image.outputs.version }}
 
 env:
   IMAGE_NAME: ${{ github.repository }}
