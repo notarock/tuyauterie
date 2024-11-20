@@ -11,6 +11,10 @@ on:
         description: Username to authenticate to the container registry.
         default: ${{ github.actor }}
         type: string
+      EXTRA_COMMAND:
+        description: Command to run before the image gets built.
+        required: false
+        type: string
     secrets:
       REGISTRY_TOKEN:
         description: Token user to authenticate to the container registry.
@@ -42,6 +46,10 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: ${{ inputs.REGISTRY_URL }}/${{ env.IMAGE_NAME }}
+
+      - name: Execute EXTRA_COMMAND (if provided)
+        if: ${{ inputs.EXTRA_COMMAND != '' }}
+        run: ${{ inputs.EXTRA_COMMAN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
