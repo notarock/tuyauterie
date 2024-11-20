@@ -1,0 +1,48 @@
+name: Rolling Deployment
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      gitops-token:
+        required: true
+        type: string
+      repository:
+        required: true
+        type: string
+        default: "notarock/gitops"
+      deployment-path:
+        required: true
+        type: string
+
+jobs:
+  rolling-deployment:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          token: ${{ inputs.gitops-token }}
+          repository: ${{ inputs.repository }}
+
+      - name: Create local changes
+        id: update
+        run: |
+          set -x
+          sed -i -E "s|(ghcr.io.*):.*$|\1:${{ inputs.version }}|" ${{ inputs.deployment-path }}
+          git diff
+
+      - name: Commit & Push changes
+        uses: actions-js/push@master
+        with:
+          coauthor_name: ${{ github.actor }}
+          github_token: ${{ inputs.gitops-token }}
+          repository: ${{ inputs.repository }}
+          message: "chore: autopublish ${{ inputs.deployment-path }} ${{ inputs.version }}"
