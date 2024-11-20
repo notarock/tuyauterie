@@ -51,7 +51,7 @@ jobs:
 
       - name: Execute EXTRA_COMMAND (if provided)
         if: ${{ inputs.EXTRA_COMMAND != '' }}
-        run: ${{ inputs.EXTRA_COMMAN }}
+        run: ${{ inputs.EXTRA_COMMAND }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
