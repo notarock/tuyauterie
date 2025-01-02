@@ -13,6 +13,9 @@ on:
       deployment-path:
         required: true
         type: string
+      base-image-pattern:
+        default: "ghcr.io.*"
+        type: string
     secrets:
       gitops-token:
         description: Token user to authenticate to the container registry.
@@ -33,12 +36,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.gitops-token }}
           repository: ${{ inputs.repository }}
-
       - name: Create local changes
         id: update
         run: |
           set -x
-          sed -i -E "s|(ghcr.io.*):.*$|\1:${{ inputs.version }}|" ${{ inputs.deployment-path }}
+          sed -i -E "s|(${{ inputs.base-image-pattern }}):.*$|\1:${{ inputs.version }}|" ${{ inputs.deployment-path }}
           git diff
 
       - name: Commit & Push changes
