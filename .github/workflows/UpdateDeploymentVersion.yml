@@ -41,7 +41,7 @@ jobs:
         run: |
           set -x
           sed -i -E "s|(${{ inputs.base-image-pattern }}):.*$|\1:${{ inputs.version }}|" ${{ inputs.deployment-path }}
-          git diff
+          git diff --unified=0
 
       - name: Commit & Push changes
         uses: actions-js/push@master
