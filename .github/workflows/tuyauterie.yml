@@ -68,8 +68,11 @@ jobs:
             
             const Dockerfile = config?.build?.dockerfile || 'Dockerfile';
             if (fs.existsSync(Dockerfile)) {
-              console.log(`Dockerfile found: ${Dockerfile}`);
+              console.log(`Dockerfile found: ${Dockerfile}, build_docker set to true`);
               core.setOutput('build_docker', "true");
+            } else {
+              console.log(`Dockerfile not found: ${Dockerfile}, build_docker set to false`);
+              core.setOutput('build_docker', "false");
             }
             
             const event = '${{ inputs.github-event }}';
@@ -80,9 +83,11 @@ jobs:
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
               core.setOutput('publish', true);
-            } 
+            }  else {
+              console.log(`Not releasing anything, 'publish' set to false for Docker build`);
+              core.setOutput('publish', false);
+            }
             
-
   build-golang:
     needs: context
     if: ${{ needs.context.outputs.build_type == 'golang' }}
