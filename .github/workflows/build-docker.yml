@@ -7,10 +7,10 @@ on:
         description: Command to run before the image gets built.
         required: false
         type: string
-      push-image:
-        description: Whether to push the image to the registry.
+      upload-artifact:
+        description: Whether to push the image as a GHA Artifacts.
         required: false
-        default: true
+        default: false
         type: boolean
       github-runner:
         description: The GitHub runner to use.
@@ -60,7 +60,6 @@ jobs:
         run: ${{ inputs.EXTRA_COMMAND }}
 
       - name: Build Docker image
-        if: ${{ inputs.push-image }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -68,12 +67,12 @@ jobs:
           tags: localbuild:${{ github.sha }}
 
       - name: Build Docker image as tarball
-        if: ${{ !inputs.push-image }}
+        if: ${{ inputs.upload-artifact }}
         run: |
           docker save localbuild:${{ github.sha }} -o docker-image.tar
 
       - name: Upload Docker image tarball
-        if: ${{ !inputs.push-image }}
+        if: ${{ inputs.upload-artifact }}
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
