@@ -28,7 +28,7 @@ on:
     secrets:
       REGISTRY_TOKEN:
         description: Token user to authenticate to the container registry.
-        required: true
+        required: false
       EXTRA_COMMAND_SECRET:
         description: Secret to pass to the extra command, if any.
         required: false

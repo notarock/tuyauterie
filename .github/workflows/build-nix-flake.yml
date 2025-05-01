@@ -10,8 +10,8 @@ on:
         type: string
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  nix-flake:
+    runs-on: ${{ inputs.github-runner }}
     permissions:
       contents: read
       id-token: write

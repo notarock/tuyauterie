@@ -15,7 +15,7 @@ on:
         type: string
 
 jobs:
-  build:
+  golang:
     runs-on: ${{ inputs.github-runner }}
     steps:
       - uses: actions/checkout@v4
