@@ -1,0 +1,81 @@
+name: Reusable Docker build and publish workflow
+
+on:
+  workflow_call:
+    inputs:
+      extra-build-cmd:
+        description: Command to run before the image gets built.
+        required: false
+        type: string
+      push-image:
+        description: Whether to push the image to the registry.
+        required: false
+        default: true
+        type: boolean
+      github-runner:
+        description: The GitHub runner to use.
+        required: false
+        default: ubuntu-latest
+        type: string
+    secrets:
+      EXTRA_COMMAND_SECRET:
+        description: Secret to pass to the extra command, if any.
+        required: false
+    outputs:
+        artifact-name:
+          description: "Name of the artifact that was uploaded"
+          value: ${{ jobs.docker.outputs.artifact-name }}
+
+env:
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  docker:
+    runs-on: ${{ inputs.github-runner }}
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      artifact-name: ${{ steps.upload-artifact.outputs.artifact-name }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.REGISTRY_URL }}/${{ env.IMAGE_NAME }}
+
+      - name: Execute EXTRA_COMMAND (if provided)
+        if: ${{ inputs.EXTRA_COMMAND != '' }}
+        env:
+          EXTRA_COMMAND_SECRET: ${{ secrets.EXTRA_COMMAND_SECRET }}
+        run: ${{ inputs.EXTRA_COMMAND }}
+
+      - name: Build Docker image
+        if: ${{ inputs.push-image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: localbuild:${{ github.sha }}
+
+      - name: Build Docker image as tarball
+        if: ${{ !inputs.push-image }}
+        run: |
+          docker save localbuild:${{ github.sha }} -o docker-image.tar
+
+      - name: Upload Docker image tarball
+        if: ${{ !inputs.push-image }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: docker-image.tar
+          retention-days: 1
