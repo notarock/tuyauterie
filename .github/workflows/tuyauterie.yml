@@ -82,10 +82,11 @@ jobs:
             if (releaseOnTag && (event === 'tag' || event === 'release')) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
-              core.setOutput('publish', true);
-            }  else {
-              console.log(`Not releasing anything, 'publish' set to false for Docker build`);
-              core.setOutput('publish', false);
+              core.setOutput('publish', "true");
+            } else {
+              console.log(`Detected event: ${event}`);
+              console.log(`Condition for release unmet, 'publish' set to false for Docker build`);
+              core.setOutput('publish', "false");
             }
             
   build-golang:
