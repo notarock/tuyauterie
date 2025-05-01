@@ -1,0 +1,106 @@
+name: Reusable Tuyauterie Build
+
+on:
+  workflow_call:
+    inputs:
+      tuyauterie-path:
+        description: 'Path to .tuyauterie.yaml file'
+        required: false
+        default: '.tuyauterie.yaml'
+        type: string
+      github-runner:
+        description: 'The GitHub runner to use'
+        required: false
+        default: 'ubuntu-latest'
+        type: string
+      github-event:
+        description: 'GitHub event that triggered the workflow'
+        required: false
+        default: 'push'
+        type: string
+        
+# Example of .tuyauterie.yaml file:
+#
+# version: 1
+#
+# build:
+#   type: golang  # or "python"
+#   dockerfile: src/Dockerfile  # Optional, if not provided, defaults to "Dockerfile"
+#
+# release:
+#   rolling: false # Optional, if not provided, defaults to false
+#   on-tag: true # Optional, if not provided, defaults to true
+#
+
+jobs:
+  context:
+    runs-on: ${{ inputs.github-runner }}
+    outputs:
+      build_type: ${{ steps.context.outputs.build_type }}
+      build_docker: ${{ steps.context.outputs.build_docker }}
+      publish: ${{ steps.context.outputs.publish }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up js-yaml
+        run: npm install js-yaml
+
+      - id: context
+        name: Read build type from .tuyauterie.yaml
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const yaml = require('./node_modules/js-yaml');
+            const path = '${{ inputs.tuyauterie-path }}';
+
+            const fileContent = fs.readFileSync(path, 'utf8');
+            const config = yaml.load(fileContent);
+
+            const buildType = config?.build?.type || 'unknown';
+
+            console.log(`Detected build type: ${buildType}`);
+            core.setOutput('build_type', buildType);
+            
+            const Dockerfile = config?.build?.dockerfile || 'Dockerfile';
+            if fs.existsSync(Dockerfile) {
+              console.log(`Dockerfile found: ${Dockerfile}`);
+              core.setOutput('build_docker', "true");
+            }
+            
+            const event = '${{ inputs.github-event }}';
+
+            const releaseOnTag = config?.release?.on_tag || true;
+
+            if (releaseOnTag && (event === 'tag' || event === 'release')) {
+              console.log(`Detected event: ${event}`);
+              console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
+              core.setOutput('publish', true);
+            } 
+            
+
+  build-golang:
+    needs: context
+    if: ${{ needs.context.outputs.build_type == 'golang' }}
+    uses: ./.github/workflows/build-golang.yml
+    with:
+      go-version: '1.22' 
+      github-runner: ${{ inputs.github-runner }}
+      
+  build-nix:
+    needs: context
+    if: ${{ needs.context.outputs.build_type == 'nix' }}
+    uses: ./.github/workflows/build-nix-flake.yml
+    with:
+      github-runner: ${{ inputs.github-runner }}
+
+  build-docker:
+    needs: context
+    if: ${{ needs.context.outputs.build_docker == 'true' }}
+    uses: ./.github/workflows/ImageAutoRelease.yml
+    with:
+      push-image: ${{ needs.context.outputs.publish }}
+      github-runner: ${{ inputs.github-runner }}

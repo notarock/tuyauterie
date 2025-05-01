@@ -15,6 +15,16 @@ on:
         description: Command to run before the image gets built.
         required: false
         type: string
+      push-image:
+        description: Whether to push the image to the registry.
+        required: false
+        default: true
+        type: boolean
+      github-runner:
+        description: The GitHub runner to use.
+        required: false
+        default: ubuntu-latest
+        type: string
     secrets:
       REGISTRY_TOKEN:
         description: Token user to authenticate to the container registry.
@@ -32,7 +42,7 @@ env:
 
 jobs:
   build-and-push-image:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.github-runner }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
     permissions:
@@ -71,6 +81,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ inputs.push-image }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

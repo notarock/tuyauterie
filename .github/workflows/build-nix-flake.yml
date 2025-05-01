@@ -1,0 +1,26 @@
+name: Reusable nix flake build
+
+on:
+  workflow_call:
+    inputs:
+      github-runner:
+        description: 'The GitHub runner to use'
+        required: false
+        default: 'ubuntu-latest'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build flake (build, test)
+        run: nix build
