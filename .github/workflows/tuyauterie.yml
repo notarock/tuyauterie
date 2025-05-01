@@ -109,5 +109,5 @@ jobs:
     if: ${{ needs.context.outputs.build_docker == 'true' }}
     uses: ./.github/workflows/ImageAutoRelease.yml
     with:
-      push-image: ${{ needs.context.outputs.publish }}
+      push-image: "${{ needs.context.outputs.publish }}"
       github-runner: ${{ inputs.github-runner }}
