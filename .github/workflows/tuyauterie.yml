@@ -41,6 +41,9 @@ jobs:
       build_docker: ${{ steps.context.outputs.build_docker }}
       publish: ${{ steps.context.outputs.publish }}
       upload_artifacts: ${{ steps.context.outputs.upload_artifacts }}
+      is_tag: ${{ steps.context.outputs.is_tag }}
+      tag_name: ${{ steps.context.outputs.tag_name }}
+      artifact_name: ${{ steps.context.outputs.artifact_name }}
     permissions:
       contents: read
       id-token: write
@@ -86,6 +89,14 @@ jobs:
 
             const releaseOnTag = config?.release?.on_tag || true;
 
+            console.log(`GitHub Ref: ${process.env.GITHUB_REF}`);
+            
+            const ref = process.env.GITHUB_REF || '';
+            const isTag = ref.startsWith('refs/tags/');
+            const tagName = isTag ? ref.replace('refs/tags/', '') : "";
+            core.setOutput('is_tag', isTag);
+            core.setOutput('tag_name', tagName);
+
             if (releaseOnTag && (event === 'tag' || event === 'release')) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
@@ -94,6 +105,12 @@ jobs:
               console.log(`Detected event: ${event}`);
               console.log(`Condition for release unmet, 'publish' set to false for Docker build`);
               core.setOutput('publish', "false");
+            }
+            
+            if (isTag) {
+              core.SetOutput('artifact_name', "${{ github.event.repository.name }}-tagName);
+            } else {
+              core.SetOutput('artifact_name', "${{ github.event.repository.name }});
             }
             
       - id: Summary
@@ -116,7 +133,11 @@ jobs:
                 ['Build Type', '${{ steps.context.outputs.build_type }}'],
                 ['Docker Build', '${{ steps.context.outputs.build_docker }}'],
                 ['Publish', '${{ steps.context.outputs.publish }}'],
-                ['Upload Artifact', '${{ steps.context.outputs.upload_artifacts }}']
+                ['Artifact Name', '${{ steps.context.outputs.artifact_name }}'],
+                ['Upload Artifact', '${{ steps.context.outputs.upload_artifacts }}'],
+                ['GitHub Event', '${{ inputs.github-event }}'],
+                ['Is Tag', '${{ steps.context.outputs.is_tag }}'],
+                ['Tag Name', '${{ steps.context.outputs.tag_name }}']
               ])
               .addLink('View this run', `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`)
               .write();
@@ -129,6 +150,7 @@ jobs:
     with:
       go-version: '1.22' 
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+      artifact-name: ${{ needs.context.outputs.artifact_name }}
       linux-runner: ${{ inputs.github-runner }}
       
   build-nix:
@@ -144,4 +166,12 @@ jobs:
     uses: ./.github/workflows/build-docker.yml
     with:
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+      github-runner: ${{ inputs.github-runner }}
+      
+  release-log:
+    needs: [context, build-golang, build-nix, build-docker]
+    if: always() 
+        # && needs.context.outputs.publish == 'true'
+    uses: ./.github/workflows/misc-release-log.yml
+    with:
       github-runner: ${{ inputs.github-runner }}
