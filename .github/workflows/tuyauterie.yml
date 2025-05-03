@@ -67,7 +67,7 @@ jobs:
 
             const buildType = config?.build?.type || 'unknown';
 
-            const uploadArtifacts = config?.build?.upload_artifacts || false;
+            const uploadArtifacts = config?.build?.upload-artifacts || false;
             core.setOutput('upload_artifacts', uploadArtifacts);
 
             console.log(`Detected build type: ${buildType}`);
