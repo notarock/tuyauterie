@@ -67,8 +67,19 @@ jobs:
       - name: Build
         run: go build -v -o ./${{ inputs.artifact-name }}-${{ runner.os }} .
 
-      - name: Test
-        run: go test -v ./...
+      - name: Run Tests and Capture Output
+        run: |
+          mkdir -p test-results
+          go test -v ./... | tee test-results/test-output.txt
+        shell: bash
+
+      - name: Upload Test Output Summary
+        run: |
+          echo '### Go Test Output' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat test-results/test-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
 
       - name: Upload binary
         if: success() && ${{ inputs.upload-artifact }}
