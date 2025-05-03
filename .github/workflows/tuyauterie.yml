@@ -26,7 +26,7 @@ on:
 # build:
 #   type: golang  # or "python"
 #   dockerfile: src/Dockerfile  # Optional, if not provided, defaults to "Dockerfile"
-#   upload-artifact: true # Optional, if not provided, defaults to false
+#   upload_artifacts: true # Optional, if not provided, defaults to false
 #
 # release:
 #   rolling: false # Optional, if not provided, defaults to false
@@ -67,7 +67,7 @@ jobs:
 
             const buildType = config?.build?.type || 'unknown';
 
-            const uploadArtifacts = config?.build?.upload-artifacts || false;
+            const uploadArtifacts = config?.build?.upload_artifacts || false;
             core.setOutput('upload_artifacts', uploadArtifacts);
 
             console.log(`Detected build type: ${buildType}`);
