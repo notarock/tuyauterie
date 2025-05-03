@@ -28,6 +28,12 @@ on:
         required: false
         default: 'macos-latest'
         type: string
+      artifact-name:
+        description: "Name of the artifact to build and upload"
+        required: false
+        default: ${{ github.event.repository.name }}
+        type: string
+
 
 jobs:
   golang:
@@ -59,7 +65,7 @@ jobs:
         shell: bash
 
       - name: Build
-        run: go build -v -o build/${{ runner.os }}/app ./...
+        run: go build -v -o ${{ inputs.artifact-name }}-${{ runner.os }} ./...
 
       - name: Test
         run: go test -v ./...
@@ -68,5 +74,5 @@ jobs:
         if: success() && ${{ inputs.upload-artifact }}
         uses: actions/upload-artifact@v4
         with:
-          name: go-binary-${{ runner.os }}
-          path: build/${{ runner.os }}/app
+          name: ${{ inputs.artifact-name }}-${{ runner.os }}
+          path: ./${{ inputs.artifact-name }}-${{ runner.os }}
