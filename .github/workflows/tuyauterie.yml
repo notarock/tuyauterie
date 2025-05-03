@@ -26,6 +26,7 @@ on:
 # build:
 #   type: golang  # or "python"
 #   dockerfile: src/Dockerfile  # Optional, if not provided, defaults to "Dockerfile"
+#   upload-artifact: true # Optional, if not provided, defaults to false
 #
 # release:
 #   rolling: false # Optional, if not provided, defaults to false
@@ -39,6 +40,7 @@ jobs:
       build_type: ${{ steps.context.outputs.build_type }}
       build_docker: ${{ steps.context.outputs.build_docker }}
       publish: ${{ steps.context.outputs.publish }}
+      upload_artifact: ${{ steps.context.outputs.upload_artifact }}
     permissions:
       contents: read
       id-token: write
@@ -62,6 +64,9 @@ jobs:
             const config = yaml.load(fileContent);
 
             const buildType = config?.build?.type || 'unknown';
+
+            const uploadArtifact = config?.build?.upload_artifact || false;
+            core.setOutput('upload_artifact', uploadArtifact);
 
             console.log(`Detected build type: ${buildType}`);
             core.setOutput('build_type', buildType);
@@ -106,6 +111,7 @@ jobs:
     uses: ./.github/workflows/build-golang.yml
     with:
       go-version: '1.22' 
+      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifact == 'true' }}
       linux-runner: ${{ inputs.github-runner }}
       
   build-nix:
@@ -120,5 +126,5 @@ jobs:
     if: ${{ needs.context.outputs.build_docker == 'true' }}
     uses: ./.github/workflows/build-docker.yml
     with:
-      upload-artifact: true # ${{ needs.context.outputs.publish == 'true' }}
+      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifact == 'true' }}
       github-runner: ${{ inputs.github-runner }}
