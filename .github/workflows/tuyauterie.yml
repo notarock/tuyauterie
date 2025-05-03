@@ -97,7 +97,13 @@ jobs:
             core.setOutput('is_tag', isTag);
             core.setOutput('tag_name', tagName);
 
-            if (releaseOnTag && (event === 'tag' || event === 'release')) {
+            if (isTag) {
+              core.setOutput('artifact_name', `${{ github.event.repository.name }}-${tagName}`);
+            } else {
+              core.setOutput('artifact_name', "${{ github.event.repository.name }}");
+            }
+
+            if (releaseOnTag && isTag) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
               core.setOutput('publish', "true");
@@ -107,11 +113,6 @@ jobs:
               core.setOutput('publish', "false");
             }
             
-            if (isTag) {
-              core.setOutput('artifact_name', `${{ github.event.repository.name }}-${tagName}`);
-            } else {
-              core.setOutput('artifact_name', "${{ github.event.repository.name }}");
-            }
             
       - id: Summary
         name: Write GitHub Summary
