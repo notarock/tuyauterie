@@ -18,11 +18,6 @@ on:
         required: false
         default: 'ubuntu-latest'
         type: string
-      windows-runner:
-        description: 'The Windows runner to use'
-        required: false
-        default: 'windows-latest'
-        type: string
       macos-runner:
         description: 'The macOS runner to use'
         required: false
@@ -41,7 +36,6 @@ jobs:
       matrix:
         os:
           - "${{ inputs.linux-runner }}"
-          - "${{ inputs.windows-runner }}"
           - "${{ inputs.macos-runner }}"
 
     runs-on: ${{ matrix.os }}
@@ -74,6 +68,7 @@ jobs:
         shell: bash
 
       - name: Upload Test Output Summary
+        if: ${{ runner.os == 'Linux' }}
         run: |
           echo '### Go Test Output' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
