@@ -108,9 +108,9 @@ jobs:
             }
             
             if (isTag) {
-              core.SetOutput('artifact_name', "${{ github.event.repository.name }}-tagName);
+              core.SetOutput('artifact_name', "${{ github.event.repository.name }}-tagName");
             } else {
-              core.SetOutput('artifact_name', "${{ github.event.repository.name }});
+              core.SetOutput('artifact_name', "${{ github.event.repository.name }}");
             }
             
       - id: Summary
