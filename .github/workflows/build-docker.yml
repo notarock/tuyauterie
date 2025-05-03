@@ -81,6 +81,6 @@ jobs:
         if: ${{ inputs.upload-artifact }}
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image
-          path: docker-image.tar
+          name: docker-image-${{ inputs.artifact-name }}.tar
+          path: docker-image-${{ inputs.artifact-name }}.tar
           retention-days: 1
