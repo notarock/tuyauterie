@@ -93,17 +93,32 @@ jobs:
               console.log(`Condition for release unmet, 'publish' set to false for Docker build`);
               core.setOutput('publish', "false");
             }
-          
+            
       - id: Summary
         name: Write GitHub Summary
         uses: actions/github-script@v7
         with:
           script: |
-            core.summary.addHeading('Tuyauterie Context')
-              .addDetails('Build Type', `Detected build type: ${context.build_type}`)
-              .addDetails('Dockerfile', `Dockerfile found: ${context.build_docker}`)
-              .addDetails('Publish', `Publish on tag: ${context.publish}`)
+            core.summary
+              .addHeading('🔧 Tuyauterie Build Context')
+              .addTable([
+                ['Key', 'Value'],
+                ['Git Ref', process.env.GITHUB_REF],
+                ['Commit SHA', process.env.GITHUB_SHA],
+                ['Actor', process.env.GITHUB_ACTOR],
+                ['Runner OS', '${{ runner.os }}'],
+                ['Job Name', process.env.GITHUB_JOB],
+                ['Workflow', process.env.GITHUB_WORKFLOW],
+                ['Repository', process.env.GITHUB_REPOSITORY],
+                ['Run ID', process.env.GITHUB_RUN_ID],
+                ['Build Type', '${{ steps.context.outputs.build_type }}'],
+                ['Docker Build', '${{ steps.context.outputs.build_docker }}'],
+                ['Publish', '${{ steps.context.outputs.publish }}'],
+                ['Upload Artifact', '${{ steps.context.outputs.upload_artifact }}']
+              ])
+              .addLink('View this run', `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`)
               .write();
+    
             
   build-golang:
     needs: context
