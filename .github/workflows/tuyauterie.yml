@@ -88,6 +88,17 @@ jobs:
               console.log(`Condition for release unmet, 'publish' set to false for Docker build`);
               core.setOutput('publish', "false");
             }
+          
+      - id: Summary
+        name: Write GitHub Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.summary.addHeading('Tuyauterie Context')
+              .addDetails('Build Type', `Detected build type: ${context.build_type}`)
+              .addDetails('Dockerfile', `Dockerfile found: ${context.build_docker}`)
+              .addDetails('Publish', `Publish on tag: ${context.publish}`)
+              .write();
             
   build-golang:
     needs: context
@@ -95,7 +106,7 @@ jobs:
     uses: ./.github/workflows/build-golang.yml
     with:
       go-version: '1.22' 
-      github-runner: ${{ inputs.github-runner }}
+      linux-runner: ${{ inputs.github-runner }}
       
   build-nix:
     needs: context
