@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      artifact-name:
+        description: "Name of the artifact to build and upload"
+        required: false
+        default: ${{ github.event.repository.name }}
+        type: string
       github-runner:
         description: The GitHub runner to use.
         required: false
@@ -70,7 +75,7 @@ jobs:
       - name: Build Docker image as tarball
         if: ${{ inputs.upload-artifact }}
         run: |
-          docker save localbuild:${{ github.sha }} -o docker-image.tar
+          docker save localbuild:${{ github.sha }} -o docker-image-${{ inputs.artifact-name }}.tar
 
       - name: Upload Docker image tarball
         if: ${{ inputs.upload-artifact }}
