@@ -1,0 +1,45 @@
+name: Commits Since Last Tag
+
+on:
+  workflow_call:
+    inputs:
+      github-runner:
+        description: 'The GitHub runner to use'
+        required: false
+        default: 'ubuntu-latest'
+        type: string
+
+jobs:
+  commits-since-tag:
+    runs-on: ${{ inputs.github-runner }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed to fetch all tags and history
+
+      - name: Generate commit log since last tag
+        run: |
+          git fetch --tags
+          mkdir -p reports
+          if git describe --tags --abbrev=0 > /dev/null 2>&1; then
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            echo "🔖 Last tag: $LAST_TAG" > reports/commits-since-last-tag.txt
+            echo "🔖 Last tag: $LAST_TAG" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            git log ${LAST_TAG}..HEAD --oneline | tee -a reports/commits-since-last-tag.txt | tee -a $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No tags found. Showing all commits:" > reports/commits-since-last-tag.txt
+            echo "No tags found. Showing all commits:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            git log --oneline | tee -a reports/commits-since-last-tag.txt | tee -a $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload commit log artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: commits-since-last-tag
+          path: reports/commits-since-last-tag.txt
