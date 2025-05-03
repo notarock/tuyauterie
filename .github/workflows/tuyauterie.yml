@@ -40,7 +40,7 @@ jobs:
       build_type: ${{ steps.context.outputs.build_type }}
       build_docker: ${{ steps.context.outputs.build_docker }}
       publish: ${{ steps.context.outputs.publish }}
-      upload_artifact: ${{ steps.context.outputs.upload_artifact }}
+      upload_artifacts: ${{ steps.context.outputs.upload_artifacts }}
     permissions:
       contents: read
       id-token: write
@@ -65,8 +65,8 @@ jobs:
 
             const buildType = config?.build?.type || 'unknown';
 
-            const uploadArtifact = config?.build?.upload_artifact || false;
-            core.setOutput('upload_artifact', uploadArtifact);
+            const uploadArtifacts = config?.build?.upload_artifacts || false;
+            core.setOutput('upload_artifacts', uploadArtifacts);
 
             console.log(`Detected build type: ${buildType}`);
             core.setOutput('build_type', buildType);
@@ -114,7 +114,7 @@ jobs:
                 ['Build Type', '${{ steps.context.outputs.build_type }}'],
                 ['Docker Build', '${{ steps.context.outputs.build_docker }}'],
                 ['Publish', '${{ steps.context.outputs.publish }}'],
-                ['Upload Artifact', '${{ steps.context.outputs.upload_artifact }}']
+                ['Upload Artifact', '${{ steps.context.outputs.upload_artifacts }}']
               ])
               .addLink('View this run', `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`)
               .write();
@@ -126,7 +126,7 @@ jobs:
     uses: ./.github/workflows/build-golang.yml
     with:
       go-version: '1.22' 
-      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifact == 'true' }}
+      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       linux-runner: ${{ inputs.github-runner }}
       
   build-nix:
@@ -141,5 +141,5 @@ jobs:
     if: ${{ needs.context.outputs.build_docker == 'true' }}
     uses: ./.github/workflows/build-docker.yml
     with:
-      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifact == 'true' }}
+      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       github-runner: ${{ inputs.github-runner }}
