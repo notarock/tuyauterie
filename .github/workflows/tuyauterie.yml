@@ -108,9 +108,9 @@ jobs:
             }
             
             if (isTag) {
-              core.SetOutput('artifact_name', "${{ github.event.repository.name }}-tagName");
+              core.setOutput('artifact_name', "${{ github.event.repository.name }}-tagName");
             } else {
-              core.SetOutput('artifact_name', "${{ github.event.repository.name }}");
+              core.setOutput('artifact_name', "${{ github.event.repository.name }}");
             }
             
       - id: Summary
@@ -170,8 +170,7 @@ jobs:
       
   release-log:
     needs: [context, build-golang, build-nix, build-docker]
-    if: always() 
-        # && needs.context.outputs.publish == 'true'
+    if: ${{ needs.context.outputs.publish == 'true' && (needs.build-golang.result == 'success' || needs.build-nix.result == 'success' || needs.build-docker.result == 'success') }}
     uses: ./.github/workflows/misc-release-log.yml
     with:
       github-runner: ${{ inputs.github-runner }}
