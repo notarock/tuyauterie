@@ -152,7 +152,7 @@ jobs:
       go-version: '1.22' 
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
-      linux-runner: ${{ inputs.github-runner }}
+      github-runner: ${{ inputs.github-runner }}
       
   build-nix:
     needs: context

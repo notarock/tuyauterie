@@ -13,15 +13,10 @@ on:
         required: false
         default: false
         type: boolean
-      linux-runner:
+      github-runner:
         description: 'The Linux runner to use'
         required: false
         default: 'ubuntu-latest'
-        type: string
-      macos-runner:
-        description: 'The macOS runner to use'
-        required: false
-        default: 'macos-latest'
         type: string
       artifact-name:
         description: "Name of the artifact to build and upload"
@@ -32,13 +27,7 @@ on:
 
 jobs:
   golang:
-    strategy:
-      matrix:
-        os:
-          - "${{ inputs.linux-runner }}"
-          - "${{ inputs.macos-runner }}"
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ inputs.github-runner }}
 
     steps:
       - uses: actions/checkout@v4
