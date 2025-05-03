@@ -62,6 +62,8 @@ jobs:
 
             const fileContent = fs.readFileSync(path, 'utf8');
             const config = yaml.load(fileContent);
+            
+            console.log(`Parsed configuration: ${JSON.stringify(config)}`);
 
             const buildType = config?.build?.type || 'unknown';
 
