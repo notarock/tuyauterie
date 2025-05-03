@@ -171,25 +171,25 @@ jobs:
       
   release-log:
     needs: [context, build-golang, build-nix, build-docker]
-    if: always() && ${{ needs.context.outputs.publish == 'true' }}
+    if: always() && needs.context.outputs.publish == 'true'
     uses: ./.github/workflows/misc-release-log.yml
     with:
       github-runner: ${{ inputs.github-runner }}
 
-  debug:
-    runs-on: ${{ inputs.github-runner }}
-    needs: [context, build-golang, build-nix, build-docker]
-    if: always()
-    steps:
-      - name: Debugging context
-        run: |
-          echo "Debugging context"
+  # debug:
+  #   runs-on: ${{ inputs.github-runner }}
+  #   needs: [context, build-golang, build-nix, build-docker]
+  #   if: always()
+  #   steps:
+  #     - name: Debugging context
+  #       run: |
+  #         echo "Debugging context"
 
-          echo  "${{ (needs.context.outputs.publish == 'true') && (needs.context.result == 'success' || needs.context.result == 'skipped') && (needs.build-golang.result == 'success' || needs.build-golang.result == 'skipped') && (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped') && (needs.build-nix.result == 'success' || needs.build-nix.result == 'skipped') }}"
+  #         echo  "${{ (needs.context.outputs.publish == 'true') && (needs.context.result == 'success' || needs.context.result == 'skipped') && (needs.build-golang.result == 'success' || needs.build-golang.result == 'skipped') && (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped') && (needs.build-nix.result == 'success' || needs.build-nix.result == 'skipped') }}"
           
-          echo "needs: ${{ toJson(needs) }}"
-          echo "context: ${{ toJson(needs.context.outputs) }}"
-          echo "build-golang: ${{ toJson(needs.build-golang.outputs) }}"
-          echo "build-nix: ${{ toJson(needs.build-nix.outputs) }}"
-          echo "build-docker: ${{ toJson(needs.build-docker.outputs) }}"
+  #         echo "needs: ${{ toJson(needs) }}"
+  #         echo "context: ${{ toJson(needs.context.outputs) }}"
+  #         echo "build-golang: ${{ toJson(needs.build-golang.outputs) }}"
+  #         echo "build-nix: ${{ toJson(needs.build-nix.outputs) }}"
+  #         echo "build-docker: ${{ toJson(needs.build-docker.outputs) }}"
 
