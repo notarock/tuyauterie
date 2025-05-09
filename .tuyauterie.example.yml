@@ -1,0 +1,28 @@
+# Example of .tuyauterie.yaml file:
+
+version: 1 # The current configuration file version, used to handle breaking changes in the future
+
+# Build-related configuration
+build:
+  # Possible choices are: "python" "nix" "docker"
+  type: golang
+  
+  # Path the Dockerfile in the repository. Defaults to "Dockerfile".
+  # If file does not exist, do not build any image.
+  dockerfile: src/Dockerfile
+  
+  # Upload build artifacts to the "Artifacts" tab in the GH Actions execution.
+  # Defaults to false
+  upload_artifacts: true
+
+# Release configuration
+# All-things artifact & package creation
+release:
+  # Should built packages & images be published on every commits to main?
+  # Rolling release means every merged changes gets publied.
+  # Defaults to False
+  rolling: false
+
+  # Should a tag trigger a build and release of software packages & image?
+  # Defaults to true
+  on-tag: true
