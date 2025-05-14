@@ -75,15 +75,15 @@ jobs:
             
             console.log(`Parsed configuration: ${JSON.stringify(config)}`);
 
-            const buildType = config?.build?.type || 'unknown';
+            const buildType = config?.build?.type ?? 'unknown';
 
-            const uploadArtifacts = config?.build?.upload_artifacts || false;
+            const uploadArtifacts = config?.build?.upload_artifacts ?? false;
             core.setOutput('upload_artifacts', uploadArtifacts);
 
             console.log(`Detected build type: ${buildType}`);
             core.setOutput('build_type', buildType);
             
-            const Dockerfile = config?.build?.dockerfile || 'Dockerfile';
+            const Dockerfile = config?.build?.dockerfile ?? 'Dockerfile';
             if (fs.existsSync(Dockerfile)) {
               console.log(`Dockerfile found: ${Dockerfile}, build_docker set to true`);
               core.setOutput('build_docker', "true");
@@ -94,11 +94,11 @@ jobs:
             
             const event = '${{ inputs.github-event }}';
 
-            const releaseOnTag = config?.release?.on_tag || true;
+            const releaseOnTag = config?.release?.on_tag ?? true;
 
             console.log(`GitHub Ref: ${process.env.GITHUB_REF}`);
             
-            const ref = process.env.GITHUB_REF || '';
+            const ref = process.env.GITHUB_REF ?? '';
             const isTag = ref.startsWith('refs/tags/');
             const tagName = isTag ? ref.replace('refs/tags/', '') : "";
             core.setOutput('is_tag', isTag);
@@ -123,14 +123,14 @@ jobs:
               publishing = false;
             }
             
-            const deploy = config?.deploy || {};
+            const deploy = config?.deploy ?? {};
 
-            const enableDeployGitops = config?.deploy?.gitops.enable || false;
+            const enableDeployGitops = config?.deploy?.gitops.enable ?? false;
             if (enableDeployGitops && publishing) {
               console.log(`GitOps deployment enabled`);
 
-              const gitopsTargetRepository = config?.deploy?.gitops?.repository || '';
-              const gitopsTargetManifest = config?.deploy?.gitops?.manifest || '';
+              const gitopsTargetRepository = config?.deploy?.gitops?.repository ?? '';
+              const gitopsTargetManifest = config?.deploy?.gitops?.manifest ?? '';
 
               core.setOutput('gitops-deployment', "true");
               core.setOutput('gitops-target-repository', gitopsTargetRepository);
@@ -214,9 +214,9 @@ jobs:
 
 
   deployment-gitops:
-    needs: [release-log, context]
+    needs: [release-log, build-docker, context]
     uses: ./.github/workflows/deployment-gitops.yml
-    if: needs.context.outputs.gitops-deployment == 'true'
+    if: always() && (needs.context.outputs.gitops-deployment == 'true') && (needs.build-docker.result == 'success')
     with:
       github-runner: ${{ inputs.github-runner }}
       version: ${{ needs.context.outputs.tag_name }}

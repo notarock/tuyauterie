@@ -27,7 +27,7 @@ on:
 
 
 jobs:
-  rolling-deployment:
+  gitops:
     runs-on: ${{ inputs.github-runner }}
     permissions:
       contents: read
