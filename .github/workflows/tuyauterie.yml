@@ -111,7 +111,7 @@ jobs:
             }
 
             var publishing = false;
-            if (releaseOnTag && is_Tag) {
+            if (releaseOnTag && isTag) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
               core.setOutput('publish', "true");
