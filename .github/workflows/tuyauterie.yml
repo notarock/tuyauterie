@@ -21,7 +21,6 @@ on:
     secrets:
       GITOPS_REPOSITORY_TOKEN:
         description: 'GitHub token for GitOps repository'
-        type: string
         required: false 
 
 # Example of .tuyauterie.yaml file:
