@@ -26,3 +26,22 @@ release:
   # Should a tag trigger a build and release of software packages & image?
   # Defaults to true
   on-tag: true
+
+  
+# Single environment configuration
+# I don't have a lot of environments (yet)
+# Ideal would be at least stage|prod
+deploy:
+  # GitOps workflow follows the GitOps principles
+  # It updates the tag of the image in the Kubernetes manifest file at a given repository
+  # If enabled, the update will happen whenever a new image is built (Depends on the release section of this config)
+  gitops:
+    # Should Gitops workflow be used?
+    # Defaults to false
+    enabled: true
+    
+    # Name of the repository where the Kubernetes manifests are stored.
+    repository: "notarock/kubernetes-manifests"
+
+    # The path to the Kubernetes manifest file to use for deployment.
+    manifest: "k8s/deployment.yaml"

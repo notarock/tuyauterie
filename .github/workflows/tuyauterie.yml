@@ -44,6 +44,9 @@ jobs:
       is_tag: ${{ steps.context.outputs.is_tag }}
       tag_name: ${{ steps.context.outputs.tag_name }}
       artifact_name: ${{ steps.context.outputs.artifact_name }}
+      gitops-deployment: ${{ steps.context.outputs.gitops-deployment }}
+      gitops-target-repository: ${{ steps.context.outputs.gitops-target-repository }}
+      gitops-target-manifest: ${{ steps.context.outputs.gitops-target-manifest }}
     permissions:
       contents: read
       id-token: write
@@ -103,15 +106,36 @@ jobs:
               core.setOutput('artifact_name', "${{ github.event.repository.name }}");
             }
 
+            var publishing = false;
             if (releaseOnTag && isTag) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
               core.setOutput('publish', "true");
+              publishing = true;
             } else {
               console.log(`Detected event: ${event}`);
               console.log(`Condition for release unmet, 'publish' set to false for Docker build`);
               core.setOutput('publish', "false");
+              publishing = false;
             }
+            
+            const deploy = config?.deploy || {};
+
+            const enableDeployGitops = config?.deploy?.gitops.enable || false;
+            if (enableDeployGitops && publishing) {
+              console.log(`GitOps deployment enabled`);
+
+              const gitopsTargetRepository = config?.deploy?.gitops?.repository || '';
+              const gitopsTargetManifest = config?.deploy?.gitops?.manifest || '';
+
+              core.setOutput('gitops-deployment', "true");
+              core.setOutput('gitops-target-repository', gitopsTargetRepository);
+              core.setOutput('gitops-target-manifest', gitopsTargetManifest);
+            } else {
+              console.log(`Not executing GitOps deployment`);
+              core.setOutput('gitops-deployment', "false");
+            }
+
             
             
       - id: Summary
@@ -138,7 +162,10 @@ jobs:
                 ['Upload Artifact', '${{ steps.context.outputs.upload_artifacts }}'],
                 ['GitHub Event', '${{ inputs.github-event }}'],
                 ['Is Tag', '${{ steps.context.outputs.is_tag }}'],
-                ['Tag Name', '${{ steps.context.outputs.tag_name }}']
+                ['Tag Name', '${{ steps.context.outputs.tag_name }}'],
+                ['GitOps Deployment', '${{ steps.context.outputs.gitops-deployment }}'],
+                ['GitOps Target Repository', '${{ steps.context.outputs.gitops-target-repository }}'],
+                ['GitOps Target Manifest', '${{ steps.context.outputs.gitops-target-manifest }}']
               ])
               .addLink('View this run', `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`)
               .write();
@@ -181,20 +208,14 @@ jobs:
     with:
       github-runner: ${{ inputs.github-runner }}
 
-  debug:
-    runs-on: ${{ inputs.github-runner }}
-    needs: [context, build-golang, build-nix, build-docker]
-    if: always()
-    steps:
-      - name: Debugging context
-        run: |
-          echo "Debugging context"
 
-          echo  "${{ (needs.context.outputs.publish == 'true') && (needs.context.result == 'success' || needs.context.result == 'skipped') && (needs.build-golang.result == 'success' || needs.build-golang.result == 'skipped') && (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped') && (needs.build-nix.result == 'success' || needs.build-nix.result == 'skipped') }}"
-          
-          echo "needs: ${{ toJson(needs) }}"
-          echo "context: ${{ toJson(needs.context.outputs) }}"
-          echo "build-golang: ${{ toJson(needs.build-golang.outputs) }}"
-          echo "build-nix: ${{ toJson(needs.build-nix.outputs) }}"
-          echo "build-docker: ${{ toJson(needs.build-docker.outputs) }}"
-
+  deployment-gitops:
+    needs: [release-log, context]
+    uses: ./.github/workflows/deployment-gitops.yml
+    if: needs.context.outputs.gitops-deployment == 'true'
+    with:
+      github-runner: ${{ inputs.github-runner }}
+      version: ${{ needs.context.outputs.tag_name }}
+      repository: ${{ needs.context.outputs.gitops-target-repository }} 
+      deployment-path: ${{ needs.context.outputs.gitops-target-manifest }}
+      base-image-pattern: "ghcr.io.*" # This assumes that the image is hosted on GitHub Container Registry

@@ -1,0 +1,55 @@
+name: Rolling Deployment
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      repository:
+        required: true
+        type: string
+        default: "notarock/gitops"
+      deployment-path:
+        required: true
+        type: string
+      base-image-pattern:
+        default: "ghcr.io.*"
+        type: string
+      github-runner:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+    secrets:
+      gitops-token:
+        description: Token user to authenticate to the container registry.
+        required: true
+
+
+jobs:
+  rolling-deployment:
+    runs-on: ${{ inputs.github-runner }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          token: ${{ secrets.gitops-token }}
+          repository: ${{ inputs.repository }}
+      - name: Create local changes
+        id: update
+        run: |
+          set -x
+          sed -i -E "s|(${{ inputs.base-image-pattern }}):.*$|\1:${{ inputs.version }}|" ${{ inputs.deployment-path }}
+          git diff --unified=0
+
+      - name: Commit & Push changes
+        uses: actions-js/push@master
+        with:
+          coauthor_name: ${{ github.actor }}
+          github_token: ${{ secrets.gitops-token }}
+          repository: ${{ inputs.repository }}
+          message: "chore: autopublish ${{ inputs.deployment-path }} ${{ inputs.version }}"
