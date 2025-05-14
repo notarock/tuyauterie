@@ -110,8 +110,8 @@ jobs:
               core.setOutput('artifact_name', "${{ github.event.repository.name }}");
             }
 
-            var publishing = false
-            if (releaseOnTag && is;Tag) {
+            var publishing = false;
+            if (releaseOnTag && is_Tag) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
               core.setOutput('publish', "true");
