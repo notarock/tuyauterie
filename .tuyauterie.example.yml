@@ -38,7 +38,7 @@ deploy:
   gitops:
     # Should Gitops workflow be used?
     # Defaults to false
-    enabled: true
+    enable: true
     
     # Name of the repository where the Kubernetes manifests are stored.
     repository: "notarock/kubernetes-manifests"
