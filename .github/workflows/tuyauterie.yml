@@ -18,7 +18,12 @@ on:
         required: false
         default: 'push'
         type: string
-        
+    secrets:
+      GITOPS_REPOSITORY_TOKEN:
+        description: 'GitHub token for GitOps repository'
+        type: string
+        required: false 
+
 # Example of .tuyauterie.yaml file:
 #
 # version: 1
@@ -106,8 +111,8 @@ jobs:
               core.setOutput('artifact_name', "${{ github.event.repository.name }}");
             }
 
-            var publishing = false;
-            if (releaseOnTag && isTag) {
+            var publishing = false
+            if (releaseOnTag && is;Tag) {
               console.log(`Detected event: ${event}`);
               console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
               core.setOutput('publish', "true");
@@ -219,3 +224,5 @@ jobs:
       repository: ${{ needs.context.outputs.gitops-target-repository }} 
       deployment-path: ${{ needs.context.outputs.gitops-target-manifest }}
       base-image-pattern: "ghcr.io.*" # This assumes that the image is hosted on GitHub Container Registry
+    secrets:
+      gitops-token: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
