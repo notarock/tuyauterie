@@ -182,6 +182,7 @@ jobs:
     with:
       go-version: '1.22' 
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+      publish-image: ${{ needs.context.outputs.publish == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
       github-runner: ${{ inputs.github-runner }}
 
@@ -208,6 +209,8 @@ jobs:
     with:
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       github-runner: ${{ inputs.github-runner }}
+    secrets:
+      docker-registry-token: ${{ secrets.GITHUB_TOKEN }}
       
   release-log:
     needs: [context, build-golang, build-nix, build-docker]

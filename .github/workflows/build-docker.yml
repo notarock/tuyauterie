@@ -7,6 +7,11 @@ on:
         description: Command to run before the image gets built.
         required: false
         type: string
+      publish-image:
+        description: Whether to publish the image to GHCR.
+        required: false
+        default: false
+        type: boolean
       upload-artifact:
         description: Whether to push the image as a GHA Artifacts.
         required: false
@@ -22,7 +27,19 @@ on:
         required: false
         default: ubuntu-latest
         type: string
+      docker-registry-url:
+        description: Container registry URL. Defaults to ghcr.io.
+        required: false
+        default: ghcr.io
+        type: string
+      docker-registry-username:
+        description: Username to authenticate to the container registry.
+        default: ${{ github.actor }}
+        type: string
     secrets:
+      docker-registry-token:
+        description: Token used to authenticate to the container registry.
+        required: false
       EXTRA_COMMAND_SECRET:
         description: Secret to pass to the extra command, if any.
         required: false
@@ -64,11 +81,19 @@ jobs:
           EXTRA_COMMAND_SECRET: ${{ secrets.EXTRA_COMMAND_SECRET }}
         run: ${{ inputs.EXTRA_COMMAND }}
 
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        if: %{{ inputs.publish-image }}
+        with:
+          registry: ${{ inputs.github-registry-url }}
+          username: ${{ inputs.github-registry-username }}
+          password: ${{ secrets.docker-registry-token }}
+
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ inputs.upload-artifact }}
+          push: ${{ inputs.publish-image }}
           load: true
           tags: localbuild:${{ github.sha }}
 
