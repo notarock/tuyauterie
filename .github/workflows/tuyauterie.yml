@@ -182,7 +182,6 @@ jobs:
     with:
       go-version: '1.22' 
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
-      publish-image: ${{ needs.context.outputs.publish == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
       github-runner: ${{ inputs.github-runner }}
 
@@ -207,6 +206,7 @@ jobs:
     if: ${{ needs.context.outputs.build_docker == 'true' }}
     uses: ./.github/workflows/build-docker.yml
     with:
+      publish-image: ${{ needs.context.outputs.publish == 'true' }}
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       github-runner: ${{ inputs.github-runner }}
     secrets:
