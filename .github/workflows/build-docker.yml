@@ -36,6 +36,7 @@ on:
         description: Username to authenticate to the container registry.
         default: ${{ github.actor }}
         type: string
+        required: false
     secrets:
       docker-registry-token:
         description: Token used to authenticate to the container registry.
@@ -69,6 +70,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        if: ${{ inputs.publish-image }}
+        with:
+          registry: ${{ inputs.github-registry-url }}
+          username: ${{ inputs.github-registry-username }}
+          password: ${{ secrets.docker-registry-token }}
+
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -80,14 +90,6 @@ jobs:
         env:
           EXTRA_COMMAND_SECRET: ${{ secrets.EXTRA_COMMAND_SECRET }}
         run: ${{ inputs.EXTRA_COMMAND }}
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        if: ${{ inputs.publish-image }}
-        with:
-          registry: ${{ inputs.github-registry-url }}
-          username: ${{ inputs.github-registry-username }}
-          password: ${{ secrets.docker-registry-token }}
 
       - name: Build Docker image
         uses: docker/build-push-action@v6
