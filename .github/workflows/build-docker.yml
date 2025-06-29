@@ -7,11 +7,6 @@ on:
         description: Command to run before the image gets built.
         required: false
         type: string
-      publish-image:
-        description: Whether to push the image to GHCR.
-        required: false
-        default: false
-        type: boolean
       upload-artifact:
         description: Whether to push the image as a GHA Artifacts.
         required: false
@@ -73,7 +68,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ inputs.publish-image }}
+          push: ${{ inputs.upload-artifact }}
           load: true
           tags: localbuild:${{ github.sha }}
 
