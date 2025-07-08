@@ -97,12 +97,13 @@ jobs:
           context: .
           push: ${{ inputs.publish-image }}
           tags: ${{ steps.meta.outputs.tags }}
+          load: true
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build Docker image as tarball
         if: ${{ inputs.upload-artifact }}
         run: |
-          docker save localbuild:${{ github.sha }} -o docker-image-${{ inputs.artifact-name }}.tar
+          docker save  ${{ inputs.docker-registry-url }}/${{ env.IMAGE_NAME }}:latest -o docker-image-${{ inputs.artifact-name }}.tar
 
       - name: Upload Docker image tarball
         if: ${{ inputs.upload-artifact }}
