@@ -96,8 +96,8 @@ jobs:
         with:
           context: .
           push: ${{ inputs.publish-image }}
-          load: true
-          tags: localbuild:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build Docker image as tarball
         if: ${{ inputs.upload-artifact }}
