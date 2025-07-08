@@ -41,7 +41,7 @@ on:
       docker-registry-token:
         description: Token used to authenticate to the container registry.
         required: false
-      EXTRA_COMMAND_SECRET:
+      extra-command-secret:
         description: Secret to pass to the extra command, if any.
         required: false
     outputs:
@@ -57,7 +57,7 @@ jobs:
     runs-on: ${{ inputs.github-runner }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
-      artifact-name: ${{ steps.upload-artifact.outputs.artifact-name }}
+      artifact-name: docker-image-${{ inputs.artifact-name }}.tar
     permissions:
       contents: read
       packages: write
@@ -74,8 +74,8 @@ jobs:
         uses: docker/login-action@v3
         if: ${{ inputs.publish-image }}
         with:
-          registry: ${{ inputs.github-registry-url }}
-          username: ${{ inputs.github-registry-username }}
+          registry: ${{ inputs.docker-registry-url }}
+          username: ${{ inputs.docker-registry-username }}
           password: ${{ secrets.docker-registry-token }}
 
 
@@ -83,13 +83,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.REGISTRY_URL }}/${{ env.IMAGE_NAME }}
+          images: ${{ inputs.docker-registry-url }}/${{ env.IMAGE_NAME }}
 
-      - name: Execute EXTRA_COMMAND (if provided)
-        if: ${{ inputs.EXTRA_COMMAND != '' }}
+      - name: Execute extra-build-cmd (if provided)
+        if: ${{ inputs.extra-build-cmd != '' }}
         env:
-          EXTRA_COMMAND_SECRET: ${{ secrets.EXTRA_COMMAND_SECRET }}
-        run: ${{ inputs.EXTRA_COMMAND }}
+          EXTRA_COMMAND_SECRET: ${{ secrets.extra-command-secret }}
+        run: ${{ inputs.extra-build-cmd }}
 
       - name: Build Docker image
         uses: docker/build-push-action@v6
