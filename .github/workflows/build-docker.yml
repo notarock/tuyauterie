@@ -100,10 +100,11 @@ jobs:
           load: true
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Build Docker image as tarball
+      - name: Save Docker image as tarball
         if: ${{ inputs.upload-artifact }}
         run: |
-          docker save  ${{ inputs.docker-registry-url }}/${{ env.IMAGE_NAME }}:latest -o docker-image-${{ inputs.artifact-name }}.tar
+          TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
+          docker save $TAG -o docker-image-${{ inputs.artifact-name }}.tar
 
       - name: Upload Docker image tarball
         if: ${{ inputs.upload-artifact }}
