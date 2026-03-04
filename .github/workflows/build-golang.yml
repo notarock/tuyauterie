@@ -6,7 +6,7 @@ on:
       go-version:
         description: 'The Go version to use'
         required: false
-        default: '1.22'
+        default: '1.25'
         type: string
       upload-artifact:
         description: Whether to push the image as a GHA Artifacts.
