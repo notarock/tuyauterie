@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Upload commit log artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: commits-since-last-tag
           path: reports/commits-since-last-tag.txt
