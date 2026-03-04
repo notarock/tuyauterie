@@ -180,7 +180,6 @@ jobs:
     if: ${{ needs.context.outputs.build_type == 'golang' }}
     uses: ./.github/workflows/build-golang.yml
     with:
-      go-version: '1.22' 
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
       github-runner: ${{ inputs.github-runner }}
