@@ -62,7 +62,7 @@ jobs:
 
       - id: context
         name: Read build type from .tuyauterie.yaml
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -144,7 +144,7 @@ jobs:
             
       - id: Summary
         name: Write GitHub Summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             core.summary
