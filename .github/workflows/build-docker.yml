@@ -108,7 +108,7 @@ jobs:
 
       - name: Upload Docker image tarball
         if: ${{ inputs.upload-artifact }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docker-image-${{ inputs.artifact-name }}.tar
           path: docker-image-${{ inputs.artifact-name }}.tar
