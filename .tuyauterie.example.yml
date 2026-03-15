@@ -4,7 +4,7 @@ version: 1 # The current configuration file version, used to handle breaking cha
 
 # Build-related configuration
 build:
-  # Possible choices are: "python" "nix" "docker"
+  # Possible choices are: "golang" "python" "nix" "docker" "node"
   type: golang
   
   # Path the Dockerfile in the repository. Defaults to "Dockerfile".
