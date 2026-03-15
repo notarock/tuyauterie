@@ -48,6 +48,7 @@ jobs:
       is_tag: ${{ steps.context.outputs.is_tag }}
       tag_name: ${{ steps.context.outputs.tag_name }}
       artifact_name: ${{ steps.context.outputs.artifact_name }}
+      project_path: ${{ steps.context.outputs.project_path }}
       gitops-deployment: ${{ steps.context.outputs.gitops-deployment }}
       gitops-target-repository: ${{ steps.context.outputs.gitops-target-repository }}
       gitops-target-manifest: ${{ steps.context.outputs.gitops-target-manifest }}
@@ -76,6 +77,9 @@ jobs:
             console.log(`Parsed configuration: ${JSON.stringify(config)}`);
 
             const buildType = config?.build?.type ?? 'unknown';
+
+            const projectPath = config?.build?.path ?? '.';
+            core.setOutput('project_path', projectPath);
 
             const uploadArtifacts = config?.build?.upload_artifacts ?? false;
             core.setOutput('upload_artifacts', uploadArtifacts);
@@ -182,6 +186,7 @@ jobs:
     with:
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
+      project-path: ${{ needs.context.outputs.project_path }}
       github-runner: ${{ inputs.github-runner }}
 
   build-python:
@@ -191,13 +196,15 @@ jobs:
     with:
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
+      project-path: ${{ needs.context.outputs.project_path }}
       github-runner: ${{ inputs.github-runner }}
-      
+
   build-nix:
     needs: context
     if: ${{ needs.context.outputs.build_type == 'nix' }}
     uses: ./.github/workflows/build-nix-flake.yml
     with:
+      project-path: ${{ needs.context.outputs.project_path }}
       github-runner: ${{ inputs.github-runner }}
 
   build-node:
@@ -208,6 +215,7 @@ jobs:
       node-version: '22'
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
       artifact-name: ${{ needs.context.outputs.artifact_name }}
+      project-path: ${{ needs.context.outputs.project_path }}
       github-runner: ${{ inputs.github-runner }}
 
   build-docker:
@@ -217,6 +225,7 @@ jobs:
     with:
       publish-image: ${{ needs.context.outputs.publish == 'true' }}
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+      project-path: ${{ needs.context.outputs.project_path }}
       github-runner: ${{ inputs.github-runner }}
     secrets:
       docker-registry-token: ${{ secrets.GITHUB_TOKEN }}

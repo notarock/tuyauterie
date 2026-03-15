@@ -8,10 +8,18 @@ on:
         required: false
         default: 'ubuntu-latest'
         type: string
+      project-path:
+        description: 'Path to the Nix flake within the repository'
+        required: false
+        default: '.'
+        type: string
 
 jobs:
   nix-flake:
     runs-on: ${{ inputs.github-runner }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.project-path }}
     permissions:
       contents: read
       id-token: write

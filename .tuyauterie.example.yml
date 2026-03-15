@@ -6,7 +6,11 @@ version: 1 # The current configuration file version, used to handle breaking cha
 build:
   # Possible choices are: "golang" "python" "nix" "docker" "node"
   type: golang
-  
+
+  # Path to the project within the repository. Defaults to ".".
+  # Useful when the build target lives in a subdirectory (e.g. a Node.js frontend under "web/").
+  path: web
+
   # Path the Dockerfile in the repository. Defaults to "Dockerfile".
   # If file does not exist, do not build any image.
   dockerfile: src/Dockerfile

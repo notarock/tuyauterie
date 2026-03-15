@@ -23,11 +23,19 @@ on:
         required: false
         default: ${{ github.event.repository.name }}
         type: string
+      project-path:
+        description: 'Path to the Go project within the repository'
+        required: false
+        default: '.'
+        type: string
 
 
 jobs:
   golang:
     runs-on: ${{ inputs.github-runner }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.project-path }}
 
     steps:
       - uses: actions/checkout@v6
@@ -70,4 +78,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-name }}-${{ runner.os }}
-          path: ./${{ inputs.artifact-name }}-${{ runner.os }}
+          path: ${{ inputs.project-path }}/${{ inputs.artifact-name }}-${{ runner.os }}

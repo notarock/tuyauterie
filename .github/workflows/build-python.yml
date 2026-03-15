@@ -20,10 +20,18 @@ on:
         required: false
         default: 'ubuntu-latest'
         type: string
+      project-path:
+        description: 'Path to the Python project within the repository'
+        required: false
+        default: '.'
+        type: string
 
 jobs:
   python:
     runs-on: ${{ inputs.github-runner }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.project-path }}
 
     steps:
       - name: Checkout code

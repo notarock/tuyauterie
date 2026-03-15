@@ -37,6 +37,11 @@ on:
         default: ${{ github.actor }}
         type: string
         required: false
+      project-path:
+        description: 'Path to the project within the repository, used as the Docker build context'
+        required: false
+        default: '.'
+        type: string
     secrets:
       docker-registry-token:
         description: Token used to authenticate to the container registry.
@@ -55,6 +60,9 @@ env:
 jobs:
   docker:
     runs-on: ${{ inputs.github-runner }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.project-path }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
       artifact-name: docker-image-${{ inputs.artifact-name }}.tar
@@ -94,7 +102,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ${{ inputs.project-path }}
           push: ${{ inputs.publish-image }}
           tags: ${{ steps.meta.outputs.tags }}
           load: true
