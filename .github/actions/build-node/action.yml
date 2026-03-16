@@ -1,0 +1,47 @@
+name: Build Node
+description: Build a Node.js project
+
+inputs:
+  node-version:
+    description: 'The Node.js version to use'
+    required: false
+    default: '22'
+  upload-artifact:
+    description: Whether to upload the build output as a GHA Artifact.
+    required: false
+    default: 'false'
+  artifact-name:
+    description: "Name of the artifact to build and upload"
+    required: false
+    default: ''
+  project-path:
+    description: 'Path to the Node.js project within the repository'
+    required: false
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '${{ inputs.node-version }}'
+        cache: 'npm'
+        cache-dependency-path: '${{ inputs.project-path }}/package-lock.json'
+
+    - name: Install dependencies
+      working-directory: ${{ inputs.project-path }}
+      run: npm ci
+      shell: bash
+
+    - name: Build
+      working-directory: ${{ inputs.project-path }}
+      run: npm run build
+      shell: bash
+
+    - name: Upload dist
+      if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.project-path }}/dist/

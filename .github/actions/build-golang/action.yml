@@ -1,0 +1,68 @@
+name: Build Golang
+description: Build, lint, test a Go project
+
+inputs:
+  go-version:
+    description: 'The Go version to use'
+    required: false
+    default: '1.25'
+  upload-artifact:
+    description: Whether to upload the binary as a GHA Artifact.
+    required: false
+    default: 'false'
+  artifact-name:
+    description: "Name of the artifact to build and upload"
+    required: false
+    default: ''
+  project-path:
+    description: 'Path to the Go project within the repository'
+    required: false
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '${{ inputs.go-version }}'
+
+    - name: Lint
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        changes=$(go fmt ./...)
+        if [[ ! -z "$changes" ]]; then
+          echo "Linter detected changes in these files:"
+          echo "$changes"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Build
+      working-directory: ${{ inputs.project-path }}
+      run: go build -v -o ./${{ inputs.artifact-name }}-${{ runner.os }} .
+      shell: bash
+
+    - name: Run Tests and Capture Output
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        mkdir -p test-results
+        go test -v ./... | tee test-results/test-output.txt
+      shell: bash
+
+    - name: Upload Test Output Summary
+      if: ${{ runner.os == 'Linux' }}
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        echo '### Go Test Output' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        cat test-results/test-output.txt >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+      shell: bash
+
+    - name: Upload binary
+      if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}-${{ runner.os }}
+        path: ${{ inputs.project-path }}/${{ inputs.artifact-name }}-${{ runner.os }}

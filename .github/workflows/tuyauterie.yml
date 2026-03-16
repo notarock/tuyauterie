@@ -179,47 +179,45 @@ jobs:
               .write();
     
             
-  build-golang:
+  build:
     needs: context
-    if: ${{ needs.context.outputs.build_type == 'golang' }}
-    uses: ./.github/workflows/build-golang.yml
-    with:
-      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
-      artifact-name: ${{ needs.context.outputs.artifact_name }}
-      project-path: ${{ needs.context.outputs.project_path }}
-      github-runner: ${{ inputs.github-runner }}
+    runs-on: ${{ inputs.github-runner }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
 
-  build-python:
-    needs: context
-    if: ${{ needs.context.outputs.build_type == 'python' }}
-    uses: ./.github/workflows/build-python.yml
-    with:
-      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
-      artifact-name: ${{ needs.context.outputs.artifact_name }}
-      project-path: ${{ needs.context.outputs.project_path }}
-      github-runner: ${{ inputs.github-runner }}
+      - name: Build (Golang)
+        if: needs.context.outputs.build_type == 'golang'
+        uses: ./.github/actions/build-golang
+        with:
+          project-path: ${{ needs.context.outputs.project_path }}
+          upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+          artifact-name: ${{ needs.context.outputs.artifact_name }}
 
-  build-nix:
-    needs: context
-    if: ${{ needs.context.outputs.build_type == 'nix' }}
-    uses: ./.github/workflows/build-nix-flake.yml
-    with:
-      project-path: ${{ needs.context.outputs.project_path }}
-      github-runner: ${{ inputs.github-runner }}
+      - name: Build (Python)
+        if: needs.context.outputs.build_type == 'python'
+        uses: ./.github/actions/build-python
+        with:
+          project-path: ${{ needs.context.outputs.project_path }}
 
-  build-node:
-    needs: context
-    if: ${{ needs.context.outputs.build_type == 'node' }}
-    uses: ./.github/workflows/build-node.yml
-    with:
-      node-version: '22'
-      upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
-      artifact-name: ${{ needs.context.outputs.artifact_name }}
-      project-path: ${{ needs.context.outputs.project_path }}
-      github-runner: ${{ inputs.github-runner }}
+      - name: Build (Nix)
+        if: needs.context.outputs.build_type == 'nix'
+        uses: ./.github/actions/build-nix
+        with:
+          project-path: ${{ needs.context.outputs.project_path }}
+
+      - name: Build (Node)
+        if: needs.context.outputs.build_type == 'node'
+        uses: ./.github/actions/build-node
+        with:
+          project-path: ${{ needs.context.outputs.project_path }}
+          upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+          artifact-name: ${{ needs.context.outputs.artifact_name }}
 
   build-docker:
-    needs: context
+    needs: [context, build]
     if: ${{ needs.context.outputs.build_docker == 'true' }}
     uses: ./.github/workflows/build-docker.yml
     with:
@@ -229,21 +227,17 @@ jobs:
       github-runner: ${{ inputs.github-runner }}
     secrets:
       docker-registry-token: ${{ secrets.GITHUB_TOKEN }}
-      
+
   release-log:
-    needs: [context, build-golang, build-nix, build-docker, build-node]
+    needs: [context, build, build-docker]
     if: |
-      always() && (needs.context.outputs.publish == 'true') &&
-        (needs.context.result == 'success' || needs.context.result == 'skipped') &&
-        (needs.build-golang.result == 'success' || needs.build-golang.result == 'skipped') &&
-        (needs.build-python.result == 'success' || needs.build-python.result == 'skipped') &&
-        (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped') &&
-        (needs.build-nix.result == 'success' || needs.build-nix.result == 'skipped') &&
-        (needs.build-node.result == 'success' || needs.build-node.result == 'skipped')
+      always() &&
+      needs.context.outputs.publish == 'true' &&
+      needs.build.result == 'success' &&
+      (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped')
     uses: ./.github/workflows/misc-release-log.yml
     with:
       github-runner: ${{ inputs.github-runner }}
-
 
   deployment-gitops:
     needs: [release-log, build-docker, context]
@@ -252,7 +246,7 @@ jobs:
     with:
       github-runner: ${{ inputs.github-runner }}
       version: ${{ needs.context.outputs.tag_name }}
-      repository: ${{ needs.context.outputs.gitops-target-repository }} 
+      repository: ${{ needs.context.outputs.gitops-target-repository }}
       deployment-path: ${{ needs.context.outputs.gitops-target-manifest }}
       base-image-pattern: "ghcr.io.*" # This assumes that the image is hosted on GitHub Container Registry
     secrets:
