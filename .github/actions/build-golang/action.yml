@@ -40,7 +40,7 @@ runs:
 
     - name: Build
       working-directory: ${{ inputs.project-path }}
-      run: go build -v -o ./${{ inputs.artifact-name }}-${{ runner.os }} ./...
+      run: go build -v -o ./${{ inputs.artifact-name }}-${{ runner.os }} .
       shell: bash
 
     - name: Run Tests and Capture Output
