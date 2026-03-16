@@ -54,9 +54,6 @@ on:
           description: "Name of the artifact that was uploaded"
           value: ${{ jobs.docker.outputs.artifact-name }}
 
-env:
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   docker:
     runs-on: ${{ inputs.github-runner }}
@@ -91,7 +88,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ inputs.docker-registry-url }}/${{ env.IMAGE_NAME }}
+          images: ${{ inputs.docker-registry-url }}/${{ github.repository_owner }}/${{ inputs.artifact-name }}
 
       - name: Execute extra-build-cmd (if provided)
         if: ${{ inputs.extra-build-cmd != '' }}

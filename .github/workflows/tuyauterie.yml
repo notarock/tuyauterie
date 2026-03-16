@@ -48,6 +48,7 @@ jobs:
       is_tag: ${{ steps.context.outputs.is_tag }}
       tag_name: ${{ steps.context.outputs.tag_name }}
       artifact_name: ${{ steps.context.outputs.artifact_name }}
+      artifact_base_name: ${{ steps.context.outputs.artifact_base_name }}
       project_path: ${{ steps.context.outputs.project_path }}
       gitops-deployment: ${{ steps.context.outputs.gitops-deployment }}
       gitops-target-repository: ${{ steps.context.outputs.gitops-target-repository }}
@@ -109,6 +110,7 @@ jobs:
             core.setOutput('tag_name', tagName);
 
             const artifactBaseName = config?.build?.artifact_name ?? '${{ github.event.repository.name }}';
+            core.setOutput('artifact_base_name', artifactBaseName);
             if (isTag) {
               core.setOutput('artifact_name', `${artifactBaseName}-${tagName}`);
             } else {
@@ -225,6 +227,7 @@ jobs:
     with:
       publish-image: ${{ needs.context.outputs.publish == 'true' }}
       upload-artifact: ${{ needs.context.outputs.publish == 'true' || needs.context.outputs.upload_artifacts == 'true' }}
+      artifact-name: ${{ needs.context.outputs.artifact_base_name }}
       project-path: ${{ needs.context.outputs.project_path }}
       github-runner: ${{ inputs.github-runner }}
     secrets:
