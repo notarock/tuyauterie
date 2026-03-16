@@ -164,6 +164,7 @@ jobs:
                 ['Repository', process.env.GITHUB_REPOSITORY],
                 ['Run ID', process.env.GITHUB_RUN_ID],
                 ['Build Type', '${{ steps.context.outputs.build_type }}'],
+                ['Build Path', '${{ steps.context.outputs.project_path }}'],
                 ['Docker Build', '${{ steps.context.outputs.build_docker }}'],
                 ['Publish', '${{ steps.context.outputs.publish }}'],
                 ['Artifact Name', '${{ steps.context.outputs.artifact_name }}'],
