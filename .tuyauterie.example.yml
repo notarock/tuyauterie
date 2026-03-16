@@ -15,6 +15,10 @@ build:
   # If file does not exist, do not build any image.
   dockerfile: src/Dockerfile
   
+  # Name used for the GitHub Actions artifact, package, and Docker image.
+  # Defaults to the repository name.
+  artifact_name: my-app
+
   # Upload build artifacts to the "Artifacts" tab in the GH Actions execution.
   # Defaults to false
   upload_artifacts: true

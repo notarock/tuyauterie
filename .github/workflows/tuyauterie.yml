@@ -108,10 +108,11 @@ jobs:
             core.setOutput('is_tag', isTag);
             core.setOutput('tag_name', tagName);
 
+            const artifactBaseName = config?.build?.artifact_name ?? '${{ github.event.repository.name }}';
             if (isTag) {
-              core.setOutput('artifact_name', `${{ github.event.repository.name }}-${tagName}`);
+              core.setOutput('artifact_name', `${artifactBaseName}-${tagName}`);
             } else {
-              core.setOutput('artifact_name', "${{ github.event.repository.name }}");
+              core.setOutput('artifact_name', artifactBaseName);
             }
 
             var publishing = false;
