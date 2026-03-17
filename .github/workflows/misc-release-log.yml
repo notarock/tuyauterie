@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Check if artifact already exists
         id: check-artifact
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
