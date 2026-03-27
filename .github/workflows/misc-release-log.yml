@@ -12,6 +12,8 @@ on:
 jobs:
   commits-since-tag:
     runs-on: ${{ inputs.github-runner }}
+    permissions:
+      actions: read
 
     steps:
       - name: Check if artifact already exists
