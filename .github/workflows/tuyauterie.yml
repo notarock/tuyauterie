@@ -36,6 +36,8 @@ jobs:
       files: ${{ steps.parse.outputs.files }}
       publishing: ${{ steps.parse.outputs.publishing }}
       gitops_deployment: ${{ steps.parse.outputs.gitops_deployment }}
+      gitops_matrix: ${{ steps.parse.outputs.gitops_matrix }}
+      gitops_repository: ${{ steps.parse.outputs.gitops_repository }}
     steps:
       - uses: actions/checkout@v6
 
@@ -119,13 +121,21 @@ jobs:
             
             const publishing = Object.values(configs).some(c => c.publish);
             const gitopsDeployment = Object.values(configs).some(c => c.gitops_deployment);
+            const gitopsMatrix = Object.values(configs)
+              .filter(c => c.gitops_deployment)
+              .map(c => ({
+                repository: c.gitops_target_repository,
+                manifest: c.gitops_target_manifest,
+                version: c.tag_name
+              }));
+            const gitopsRepository = gitopsMatrix[0]?.repository ?? '';
 
             core.setOutput('matrix', JSON.stringify(matrix));
             core.setOutput('files', JSON.stringify(configs));
             core.setOutput('publishing', String(publishing));
             core.setOutput('gitops_deployment', String(gitopsDeployment));
-            
-            core.setOutput('files', JSON.stringify(configs));
+            core.setOutput('gitops_matrix', JSON.stringify(gitopsMatrix));
+            core.setOutput('gitops_repository', gitopsRepository);
 
   build:
     needs: setup
@@ -319,82 +329,27 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Collect GitOps configs from context
-        uses: actions/github-script@v8
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v6
         with:
-          script: |
-            const configs = JSON.parse('${{ needs.setup.outputs.files }}');
-            const matrix = JSON.parse('${{ needs.setup.outputs.matrix }}');
-            
-            const gitopsConfigs = {};
-            
-            for (const item of matrix) {
-              const key = item.key;
-              const file = item.file;
-              const config = configs[key];
-              
-              if (config && config.gitops_deployment && config.gitops_target_repository && config.gitops_target_manifest) {
-                const repo = config.gitops_target_repository;
-                if (!gitopsConfigs[repo]) {
-                  gitopsConfigs[repo] = { repository: repo, manifests: [] };
-                }
-                gitopsConfigs[repo].manifests.push({
-                  manifest: config.gitops_target_manifest,
-                  version: config.tag_name || 'latest',
-                  file: file
-                });
-              }
-            }
-            
-            const uniqueConfigs = Object.values(gitopsConfigs);
-            
-            const fs = require('fs');
-            fs.writeFileSync('gitops-configs.json', JSON.stringify(uniqueConfigs, null, 2));
-            console.log(`Found ${uniqueConfigs.length} unique GitOps repositories to update`);
-            console.log(JSON.stringify(uniqueConfigs, null, 2));
+          fetch-depth: 0
+          token: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
+          repository: ${{ needs.setup.outputs.gitops_repository }}
 
-      - name: Update all manifests
-        env:
-          GITOPS_TOKEN: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
+      - name: Update manifests
         run: |
-          set -x
-          
-          if [ ! -f gitops-configs.json ]; then
-            echo "No GitOps configurations found"
-            exit 0
-          fi
-          
-          repos=$(jq -r '.[].repository' gitops-configs.json | sort -u)
-          
-          for repo in $repos; do
-            echo "Processing repository: $repo"
-            
-            clone_dir=".gitops-temp-$(echo "$repo" | tr '/' '-')"
-            if [ ! -d "$clone_dir" ]; then
-              git clone --depth 1 "https://github.com/$repo.git" "$clone_dir"
+          echo '${{ needs.setup.outputs.gitops_matrix }}' | jq -r '.[] | "\(.manifest) \(.version)"' | while read -r manifest version; do
+            if [ -f "$manifest" ]; then
+              echo "Updating $manifest to $version"
+              sed -i -E "s|(ghcr.io/[^:]+):.*$|\1:$version|" "$manifest"
+            else
+              echo "Warning: Manifest not found: $manifest"
             fi
-            
-            cd "$clone_dir"
-            
-            branch="tuyauterie-update-$(date +%Y%m%d-%H%M%S)"
-            git checkout -b "$branch"
-            
-            jq -r --arg repo "$repo" '.[] | select(.repository == $repo) | .manifests[] | "\(.file):\(.manifest):\(.version)"' gitops-configs.json | while IFS=: read -r file manifest version; do
-              if [ -f "$manifest" ]; then
-                echo "Updating $manifest (from $file) to version $version"
-                sed -i -E "s|(ghcr.io/[^:]+):.*$|\1:$version|" "$manifest"
-              else
-                echo "Warning: Manifest not found: $manifest"
-              fi
-            done
-            
-            git config user.name "GitHub Actions"
-            git config user.email "actions@github.com"
-            git add .
-            git commit -m "chore: autopublish tuyauterie builds"
-            git push origin "$branch"
-            
-            cd ..
           done
+
+      - name: Commit & Push changes
+        uses: actions-js/push@master
+        with:
+          github_token: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
+          repository: ${{ needs.setup.outputs.gitops_repository }}
+          message: "chore: autopublish tuyauterie builds"
