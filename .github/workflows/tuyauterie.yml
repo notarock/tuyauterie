@@ -76,6 +76,7 @@ jobs:
                 const buildType = config?.build?.type ?? 'unknown';
                 const projectPath = config?.build?.path ?? '.';
                 const uploadArtifacts = config?.build?.upload_artifacts ?? false;
+                const testCmd = config?.build?.test_cmd ?? '';
                 const Dockerfile = config?.build?.dockerfile ?? 'Dockerfile';
                 const buildDocker = fs.existsSync(Dockerfile);
                 const releaseOnTag = config?.release?.on_tag ?? true;
@@ -97,6 +98,7 @@ jobs:
                   build_docker: buildDocker,
                   publish: publishing,
                   upload_artifacts: uploadArtifacts,
+                  test_cmd: testCmd,
                   is_tag: isTag,
                   tag_name: tagName,
                   artifact_name: publishing ? `${artifactBaseName}-${tagName}` : artifactBaseName,
@@ -146,7 +148,12 @@ jobs:
             core.setOutput('project_path', config.project_path);
             core.setOutput('publish', config.publish);
             core.setOutput('upload_artifacts', config.upload_artifacts);
+            core.setOutput('test_cmd', config.test_cmd);
             core.setOutput('artifact_name', config.artifact_name);
+
+      - name: Run test command
+        if: steps.config.outputs.test_cmd != ''
+        run: ${{ steps.config.outputs.test_cmd }}
 
       - name: Build (Golang)
         if: steps.config.outputs.build_type == 'golang'

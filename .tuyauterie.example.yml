@@ -23,6 +23,11 @@ build:
   # Defaults to false
   upload_artifacts: true
 
+  # Extra test command to run after the build.
+  # Example: "go test ./..." or "npm test"
+  # Defaults to no test
+  test_cmd: ""
+
 # Release configuration
 # All-things artifact & package creation
 release:
