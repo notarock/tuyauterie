@@ -4,9 +4,14 @@ on:
   workflow_call:
     inputs:
       tuyauterie-path:
-        description: 'Path to .tuyauterie.yaml file'
+        description: 'Path to .tuyauterie.yaml file (deprecated, use tuyauterie-files instead)'
         required: false
         default: '.tuyauterie.yaml'
+        type: string
+      tuyauterie-files:
+        description: 'Array of paths to .tuyauterie.yaml files (matrix strategy)'
+        required: false
+        default: '[".tuyauterie.yaml"]'
         type: string
       github-runner:
         description: 'The GitHub runner to use'
@@ -23,23 +28,39 @@ on:
         description: 'GitHub token for GitOps repository'
         required: false 
 
-# Example of .tuyauterie.yaml file:
-#
-# version: 1
-#
-# build:
-#   type: golang  # or "python"
-#   dockerfile: src/Dockerfile  # Optional, if not provided, defaults to "Dockerfile"
-#   upload_artifacts: true # Optional, if not provided, defaults to false
-#
-# release:
-#   rolling: false # Optional, if not provided, defaults to false
-#   on-tag: true # Optional, if not provided, defaults to true
-#
-
 jobs:
+  setup:
+    runs-on: ${{ inputs.github-runner }}
+    outputs:
+      tuyauterie-files: ${{ steps.set-matrix.outputs.tuyauterie-files }}
+    steps:
+      - name: Set matrix from input
+        id: set-matrix
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Use tuyauterie-files if provided, otherwise fall back to tuyauterie-path for backward compatibility
+            const filesInput = '${{ inputs.tuyauterie-files }}';
+            const pathInput = '${{ inputs.tuyauterie-path }}';
+            
+            let files;
+            if (filesInput && filesInput !== '[]') {
+              files = JSON.parse(filesInput);
+            } else if (pathInput && pathInput !== '.tuyauterie.yaml') {
+              files = [pathInput];
+            } else {
+              files = ['.tuyauterie.yaml'];
+            }
+            
+            console.log(`Using tuyauterie files: ${JSON.stringify(files)}`);
+            core.setOutput('tuyauterie-files', JSON.stringify(files));
+
   context:
     runs-on: ${{ inputs.github-runner }}
+    needs: setup
+    strategy:
+      matrix:
+        tuyauterie-path: ${{ fromJSON(needs.setup.outputs.tuyauterie-files) }}
     outputs:
       build_type: ${{ steps.context.outputs.build_type }}
       build_docker: ${{ steps.context.outputs.build_docker }}
@@ -53,6 +74,7 @@ jobs:
       gitops-deployment: ${{ steps.context.outputs.gitops-deployment }}
       gitops-target-repository: ${{ steps.context.outputs.gitops-target-repository }}
       gitops-target-manifest: ${{ steps.context.outputs.gitops-target-manifest }}
+      tuyauterie-path: ${{ matrix.tuyauterie-path }}
     permissions:
       contents: read
       id-token: write
@@ -70,7 +92,7 @@ jobs:
             const fs = require('fs');
 
             const yaml = require('./node_modules/js-yaml');
-            const path = '${{ inputs.tuyauterie-path }}';
+            const path = '${{ matrix.tuyauterie-path }}';
 
             const fileContent = fs.readFileSync(path, 'utf8');
             const config = yaml.load(fileContent);
@@ -147,22 +169,20 @@ jobs:
               core.setOutput('gitops-deployment', "false");
             }
 
-            
-            
       - id: Summary
         name: Write GitHub Summary
         uses: actions/github-script@v8
         with:
           script: |
             core.summary
-              .addHeading('🔧 Tuyauterie Build Context')
+              .addHeading(`🔧 Tuyauterie Build Context: ${{ matrix.tuyauterie-path }}`)
               .addTable([
                 ['Key', 'Value'],
                 ['Git Ref', process.env.GITHUB_REF],
                 ['Commit SHA', process.env.GITHUB_SHA],
                 ['Actor', process.env.GITHUB_ACTOR],
                 ['Runner OS', '${{ runner.os }}'],
-                ['Job Name', process.env.GITHUB_JOB],
+                ['Job Name', `${{ env.GITHUB_JOB }} (matrix: ${{ matrix.tuyauterie-path }})`],
                 ['Workflow', process.env.GITHUB_WORKFLOW],
                 ['Repository', process.env.GITHUB_REPOSITORY],
                 ['Run ID', process.env.GITHUB_RUN_ID],
@@ -181,10 +201,9 @@ jobs:
               ])
               .addLink('View this run', `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`)
               .write();
-    
-            
+
   build:
-    needs: context
+    needs: [setup, context]
     runs-on: ${{ inputs.github-runner }}
     permissions:
       contents: read
@@ -221,7 +240,7 @@ jobs:
           artifact-name: ${{ needs.context.outputs.artifact_name }}
 
   build-docker:
-    needs: [context, build]
+    needs: [setup, context, build]
     if: ${{ needs.context.outputs.build_docker == 'true' }}
     uses: ./.github/workflows/build-docker.yml
     with:
@@ -234,25 +253,169 @@ jobs:
       docker-registry-token: ${{ secrets.GITHUB_TOKEN }}
 
   release-log:
-    needs: [context, build, build-docker]
+    needs: [setup, context, build, build-docker]
     if: |
       always() &&
-      needs.context.outputs.publish == 'true' &&
-      needs.build.result == 'success' &&
-      (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped')
-    uses: ./.github/workflows/misc-release-log.yml
-    with:
-      github-runner: ${{ inputs.github-runner }}
+      needs.setup.result == 'success' &&
+      (needs.context.result == 'success' || needs.context.result == 'skipped') &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped' || needs.build-docker.result == 'failure')
+    runs-on: ${{ inputs.github-runner }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Generate consolidated commit log
+        run: |
+          git fetch --tags
+          mkdir -p reports
+          
+          # Get all tuyauterie files from setup output
+          files=$(jq -r '.[]' <<< '${{ needs.setup.outputs.tuyauterie-files }}')
+          
+          echo "# Commits Since Last Tag (All Tuyauterie Files)" > reports/commits-since-last-tag.txt
+          echo "" >> reports/commits-since-last-tag.txt
+          
+          for file in $files; do
+            echo "### $file" >> reports/commits-since-last-tag.txt
+            echo "" >> reports/commits-since-last-tag.txt
+            
+            if git describe --tags --abbrev=0 > /dev/null 2>&1; then
+              LAST_TAG=$(git describe --tags --abbrev=0)
+              echo "Last tag: $LAST_TAG" >> reports/commits-since-last-tag.txt
+              git log ${LAST_TAG}..HEAD --oneline >> reports/commits-since-last-tag.txt
+            else
+              echo "No tags found. Showing all commits:" >> reports/commits-since-last-tag.txt
+              git log --oneline >> reports/commits-since-last-tag.txt
+            fi
+            
+            echo "" >> reports/commits-since-last-tag.txt
+            echo "---" >> reports/commits-since-last-tag.txt
+            echo "" >> reports/commits-since-last-tag.txt
+          done
+
+      - name: Upload commit log
+        uses: actions/upload-artifact@v7
+        with:
+          name: commits-since-last-tag
+          path: reports/commits-since-last-tag.txt
 
   deployment-gitops:
-    needs: [release-log, build-docker, context]
-    uses: ./.github/workflows/deployment-gitops.yml
-    if: always() && (needs.context.outputs.gitops-deployment == 'true') && (needs.build-docker.result == 'success')
-    with:
-      github-runner: ${{ inputs.github-runner }}
-      version: ${{ needs.context.outputs.tag_name }}
-      repository: ${{ needs.context.outputs.gitops-target-repository }}
-      deployment-path: ${{ needs.context.outputs.gitops-target-manifest }}
-      base-image-pattern: "ghcr.io.*" # This assumes that the image is hosted on GitHub Container Registry
-    secrets:
-      gitops-token: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
+    needs: [setup, context, build, build-docker, release-log]
+    if: always()
+    runs-on: ${{ inputs.github-runner }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Collect GitOps configs from all matrix jobs
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            
+            const contextOutputs = JSON.parse('${{ toJSON(needs.context.outputs) }}');
+            
+            const gitopsConfigs = [];
+            const seenRepos = new Set();
+            
+            for (const [key, value] of Object.entries(contextOutputs)) {
+              if (key.startsWith('gitops-target-')) {
+                const parts = key.split('.');
+                const matrixJob = parts[0];
+                const field = parts.slice(1).join('.');
+                
+                if (!gitopsConfigs[matrixJob]) {
+                  gitopsConfigs[matrixJob] = {};
+                }
+                gitopsConfigs[matrixJob][field] = value;
+              }
+            }
+            
+            for (const [matrixJob, config] of Object.entries(gitopsConfigs)) {
+              if (config['gitops-deployment'] === 'true' && 
+                  config['gitops-target-repository'] && 
+                  config['gitops-target-manifest']) {
+                const repo = config['gitops-target-repository'];
+                if (!seenRepos.has(repo)) {
+                  seenRepos.add(repo);
+                  gitopsConfigs[matrixJob].matrixJob = matrixJob;
+                }
+              }
+            }
+            
+            const uniqueConfigs = [];
+            const repoMap = new Map();
+            
+            for (const [matrixJob, config] of Object.entries(gitopsConfigs)) {
+              if (config['gitops-deployment'] === 'true' && 
+                  config['gitops-target-repository'] && 
+                  config['gitops-target-manifest']) {
+                const repo = config['gitops-target-repository'];
+                const manifest = config['gitops-target-manifest'];
+                const version = config['tag_name'] || 'latest';
+                
+                if (!repoMap.has(repo)) {
+                  repoMap.set(repo, { repository: repo, manifests: [] });
+                }
+                repoMap.get(repo).manifests.push({ manifest, version, matrixJob });
+              }
+            }
+            
+            for (const [, value] of repoMap.entries()) {
+              uniqueConfigs.push(value);
+            }
+            
+            fs.writeFileSync('gitops-configs.json', JSON.stringify(uniqueConfigs, null, 2));
+            console.log(`Found ${uniqueConfigs.length} unique GitOps repositories to update`);
+            console.log(JSON.stringify(uniqueConfigs, null, 2));
+
+      - name: Update all manifests
+        env:
+          GITOPS_TOKEN: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
+        run: |
+          set -x
+          
+          if [ ! -f gitops-configs.json ]; then
+            echo "No GitOps configurations found"
+            exit 0
+          fi
+          
+          # Get unique repositories
+          repos=$(jq -r '.[].repository' gitops-configs.json | sort -u)
+          
+          for repo in $repos; do
+            echo "Processing repository: $repo"
+            
+            clone_dir=".gitops-temp-$(echo "$repo" | tr '/' '-')"
+            if [ ! -d "$clone_dir" ]; then
+              git clone --depth 1 "https://github.com/$repo.git" "$clone_dir"
+            fi
+            
+            cd "$clone_dir"
+            
+            branch="tuyauterie-update-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$branch"
+            
+            # Get manifests for this repo
+            jq -r --arg repo "$repo" '.[] | select(.repository == $repo) | .manifests[] | "\(.matrixJob):\(.manifest):\(.version)"' gitops-configs.json | while IFS=: read -r matrixJob manifest version; do
+              if [ -f "$manifest" ]; then
+                echo "Updating $manifest (from $matrixJob) to version $version"
+                sed -i -E "s|(ghcr.io/[^:]+):.*$|\1:$version|" "$manifest"
+              else
+                echo "Warning: Manifest not found: $manifest"
+              fi
+            done
+            
+            git config user.name "GitHub Actions"
+            git config user.email "actions@github.com"
+            git add .
+            git commit -m "chore: autopublish tuyauterie builds"
+            git push origin "$branch"
+            
+            cd ..
+          done
