@@ -151,10 +151,6 @@ jobs:
             core.setOutput('test_cmd', config.test_cmd);
             core.setOutput('artifact_name', config.artifact_name);
 
-      - name: Run test command
-        if: steps.config.outputs.test_cmd != ''
-        run: ${{ steps.config.outputs.test_cmd }}
-
       - name: Build (Golang)
         if: steps.config.outputs.build_type == 'golang'
         uses: notarock/tuyauterie/.github/actions/build-golang@main
@@ -182,6 +178,10 @@ jobs:
           project-path: ${{ steps.config.outputs.project_path }}
           upload-artifact: ${{ steps.config.outputs.publish == 'true' && steps.config.outputs.upload_artifacts == 'true' }}
           artifact-name: ${{ steps.config.outputs.artifact_name }}
+
+      - name: Run test command
+        if: steps.config.outputs.test_cmd != ''
+        run: ${{ steps.config.outputs.test_cmd }}
 
   build-docker:
     needs: [setup, build]
