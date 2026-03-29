@@ -32,38 +32,7 @@ jobs:
   setup:
     runs-on: ${{ inputs.github-runner }}
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Set matrix from input
-        id: set-matrix
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const filesInput = '${{ inputs.tuyauterie-files }}';
-            const pathInput = '${{ inputs.tuyauterie-path }}';
-            
-            let files;
-            if (filesInput && filesInput !== '[]') {
-              files = JSON.parse(filesInput);
-            } else if (pathInput && pathInput !== '.tuyauterie.yaml') {
-              files = [pathInput];
-            } else {
-              files = ['.tuyauterie.yaml'];
-            }
-            
-            // Create sanitized matrix values
-            const matrix = files.map(f => ({
-              file: f,
-              key: f.replace(/[^a-zA-Z0-9]/g, '_')
-            }));
-            
-            console.log(`Using matrix: ${JSON.stringify(matrix)}`);
-            core.setOutput('matrix', JSON.stringify(matrix));
-
-  context:
-    runs-on: ${{ inputs.github-runner }}
-    needs: setup
-    outputs:
+      matrix: ${{ steps.parse.outputs.matrix }}
       files: ${{ steps.parse.outputs.files }}
     steps:
       - uses: actions/checkout@v6
@@ -78,8 +47,23 @@ jobs:
           script: |
             const fs = require('fs');
             const yaml = require('./node_modules/js-yaml');
-            const matrix = JSON.parse('${{ needs.setup.outputs.matrix }}');
-            const files = matrix.map(m => m.file);
+            
+            const filesInput = '${{ inputs.tuyauterie-files }}';
+            const pathInput = '${{ inputs.tuyauterie-path }}';
+            
+            let files;
+            if (filesInput && filesInput !== '[]') {
+              files = JSON.parse(filesInput);
+            } else if (pathInput && pathInput !== '.tuyauterie.yaml') {
+              files = [pathInput];
+            } else {
+              files = ['.tuyauterie.yaml'];
+            }
+            
+            const matrix = files.map(f => ({
+              file: f,
+              key: f.replace(/[^a-zA-Z0-9]/g, '_')
+            }));
             
             const configs = {};
             
@@ -129,10 +113,13 @@ jobs:
               }
             }
             
+            core.setOutput('matrix', JSON.stringify(matrix));
+            core.setOutput('files', JSON.stringify(configs));
+            
             core.setOutput('files', JSON.stringify(configs));
 
   build:
-    needs: [setup, context]
+    needs: setup
     runs-on: ${{ inputs.github-runner }}
     strategy:
       matrix:
@@ -149,7 +136,7 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const configs = JSON.parse('${{ needs.context.outputs.files }}');
+            const configs = JSON.parse('${{ needs.setup.outputs.files }}');
             const key = '${{ matrix.value.key }}';
             const config = configs[key];
             if (!config) {
@@ -190,7 +177,7 @@ jobs:
           artifact-name: ${{ steps.config.outputs.artifact_name }}
 
   build-docker:
-    needs: [setup, context, build]
+    needs: [setup, build]
     runs-on: ${{ inputs.github-runner }}
     strategy:
       matrix:
@@ -208,7 +195,7 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const configs = JSON.parse('${{ needs.context.outputs.files }}');
+            const configs = JSON.parse('${{ needs.setup.outputs.files }}');
             const key = '${{ matrix.value.key }}';
             const config = configs[key];
             if (!config) {
@@ -261,11 +248,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   release-log:
-    needs: [setup, context, build, build-docker]
+    needs: [setup, build, build-docker]
     if: |
       always() &&
       needs.setup.result == 'success' &&
-      needs.context.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped' || needs.build-docker.result == 'failure')
     runs-on: ${{ inputs.github-runner }}
@@ -311,7 +297,7 @@ jobs:
           path: reports/commits-since-last-tag.txt
 
   deployment-gitops:
-    needs: [setup, context, build, build-docker, release-log]
+    needs: [setup, build, build-docker, release-log]
     if: always()
     runs-on: ${{ inputs.github-runner }}
     permissions:
@@ -323,7 +309,7 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const configs = JSON.parse('${{ needs.context.outputs.files }}');
+            const configs = JSON.parse('${{ needs.setup.outputs.files }}');
             const matrix = JSON.parse('${{ needs.setup.outputs.matrix }}');
             
             const gitopsConfigs = {};
