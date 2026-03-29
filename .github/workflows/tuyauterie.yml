@@ -182,6 +182,7 @@ jobs:
       - name: Run test command
         if: steps.config.outputs.test_cmd != ''
         run: ${{ steps.config.outputs.test_cmd }}
+        working-directory: ${{ steps.config.outputs.project_path }}
 
   build-docker:
     needs: [setup, build]
