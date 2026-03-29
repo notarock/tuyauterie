@@ -32,7 +32,7 @@ jobs:
   setup:
     runs-on: ${{ inputs.github-runner }}
     outputs:
-      tuyauterie-files: ${{ steps.set-matrix.outputs.tuyauterie-files }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Set matrix from input
         id: set-matrix
@@ -51,8 +51,14 @@ jobs:
               files = ['.tuyauterie.yaml'];
             }
             
-            console.log(`Using tuyauterie files: ${JSON.stringify(files)}`);
-            core.setOutput('tuyauterie-files', JSON.stringify(files));
+            // Create sanitized matrix values
+            const matrix = files.map(f => ({
+              file: f,
+              key: f.replace(/[^a-zA-Z0-9]/g, '_')
+            }));
+            
+            console.log(`Using matrix: ${JSON.stringify(matrix)}`);
+            core.setOutput('matrix', JSON.stringify(matrix));
 
   context:
     runs-on: ${{ inputs.github-runner }}
@@ -129,8 +135,8 @@ jobs:
     runs-on: ${{ inputs.github-runner }}
     strategy:
       matrix:
-        include: ${{ fromJSON(needs.setup.outputs.tuyauterie-files) }}
-    name: ${{ matrix.include }}
+        value: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    name: ${{ matrix.value.file }}
     permissions:
       contents: read
       id-token: write
@@ -143,10 +149,10 @@ jobs:
         with:
           script: |
             const configs = JSON.parse('${{ needs.context.outputs.files }}');
-            const sanitized = '${{ matrix.include }}'.replace(/[^a-zA-Z0-9]/g, '_');
-            const config = configs[sanitized];
+            const key = '${{ matrix.value.key }}';
+            const config = configs[key];
             if (!config) {
-              core.setFailed('No config found for ${{ matrix.include }}');
+              core.setFailed('No config found for ${{ matrix.value.file }}');
             }
             core.setOutput('build_type', config.build_type);
             core.setOutput('project_path', config.project_path);
@@ -187,8 +193,8 @@ jobs:
     runs-on: ${{ inputs.github-runner }}
     strategy:
       matrix:
-        include: ${{ fromJSON(needs.setup.outputs.tuyauterie-files) }}
-    name: ${{ matrix.include }}
+        value: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    name: ${{ matrix.value.file }}
     permissions:
       contents: read
       packages: write
@@ -202,10 +208,10 @@ jobs:
         with:
           script: |
             const configs = JSON.parse('${{ needs.context.outputs.files }}');
-            const sanitized = '${{ matrix.include }}'.replace(/[^a-zA-Z0-9]/g, '_');
-            const config = configs[sanitized];
+            const key = '${{ matrix.value.key }}';
+            const config = configs[key];
             if (!config) {
-              core.setFailed('No config found for ${{ matrix.include }}');
+              core.setFailed('No config found for ${{ matrix.value.file }}');
             }
             if (!config.build_docker) {
               core.setOutput('skip', 'true');
@@ -274,7 +280,7 @@ jobs:
           git fetch --tags
           mkdir -p reports
           
-          files=$(jq -r '.[]' <<< '${{ needs.setup.outputs.tuyauterie-files }}')
+          files=$(jq -r '.[] | .file' <<< '${{ needs.setup.outputs.matrix }}')
           
           echo "# Commits Since Last Tag (All Tuyauterie Files)" > reports/commits-since-last-tag.txt
           echo "" >> reports/commits-since-last-tag.txt
@@ -317,13 +323,14 @@ jobs:
         with:
           script: |
             const configs = JSON.parse('${{ needs.context.outputs.files }}');
-            const files = JSON.parse('${{ needs.setup.outputs.tuyauterie-files }}');
+            const matrix = JSON.parse('${{ needs.setup.outputs.matrix }}');
             
             const gitopsConfigs = {};
             
-            for (const file of files) {
-              const sanitized = file.replace(/[^a-zA-Z0-9]/g, '_');
-              const config = configs[sanitized];
+            for (const item of matrix) {
+              const key = item.key;
+              const file = item.file;
+              const config = configs[key];
               
               if (config && config.gitops_deployment && config.gitops_target_repository && config.gitops_target_manifest) {
                 const repo = config.gitops_target_repository;
