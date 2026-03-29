@@ -338,6 +338,7 @@ jobs:
 
       - name: Update manifests
         run: |
+          VERSION=""
           echo '${{ needs.setup.outputs.gitops_matrix }}' | jq -r '.[] | "\(.manifest) \(.version)"' | while read -r manifest version; do
             if [ -f "$manifest" ]; then
               echo "Updating $manifest to $version"
@@ -346,10 +347,12 @@ jobs:
               echo "Warning: Manifest not found: $manifest"
             fi
           done
+          VERSION=$(echo '${{ needs.setup.outputs.gitops_matrix }}' | jq -r '.[0].version // ""')
+          echo "DEPLOY_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Commit & Push changes
         uses: actions-js/push@master
         with:
           github_token: ${{ secrets.GITOPS_REPOSITORY_TOKEN }}
           repository: ${{ needs.setup.outputs.gitops_repository }}
-          message: "chore: autopublish tuyauterie builds"
+          message: "chore: autopublish ${{ github.repository }} ${{ env.DEPLOY_VERSION }}"
