@@ -84,12 +84,14 @@ jobs:
                 const Dockerfile = config?.build?.dockerfile ?? 'Dockerfile';
                 const buildDocker = fs.existsSync(Dockerfile);
                 const releaseOnTag = config?.release?.on_tag ?? true;
+                const rollingRelease = config?.release?.rolling ?? false;
                 const artifactBaseName = config?.build?.artifact_name ?? '${{ github.event.repository.name }}';
-                
+
                 const ref = process.env.GITHUB_REF ?? '';
                 const isTag = ref.startsWith('refs/tags/');
+                const isMainBranch = ref === 'refs/heads/main' || ref === 'refs/heads/master';
                 const tagName = isTag ? ref.replace('refs/tags/', '') : '';
-                const publishing = releaseOnTag && isTag;
+                const publishing = (releaseOnTag && isTag) || (rollingRelease && isMainBranch);
                 
                 const enableGitops = config?.deploy?.gitops?.enable ?? false;
                 const gitopsDeployment = enableGitops && publishing;
@@ -105,7 +107,7 @@ jobs:
                   test_cmd: testCmd,
                   is_tag: isTag,
                   tag_name: tagName,
-                  artifact_name: publishing ? `${artifactBaseName}-${tagName}` : artifactBaseName,
+                  artifact_name: (publishing && tagName) ? `${artifactBaseName}-${tagName}` : artifactBaseName,
                   artifact_base_name: artifactBaseName,
                   project_path: projectPath,
                   gitops_deployment: gitopsDeployment,
@@ -260,6 +262,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
+            type=ref,event=tag
             type=sha,prefix=
             type=raw,value=${{ steps.config.outputs.artifact_base_name }},enabled=${{ steps.config.outputs.publish }}
 
