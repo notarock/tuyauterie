@@ -259,12 +259,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository_owner }}/${{ steps.config.outputs.artifact_base_name }}
           tags: |
-            type=ref,event=branch
             type=ref,event=tag
-            type=sha,prefix=
-            type=raw,value=${{ steps.config.outputs.artifact_base_name }},enabled=${{ steps.config.outputs.publish }}
+            type=raw,value=latest
 
       - name: Build and push
         if: steps.config.outputs.build_docker == 'true'
