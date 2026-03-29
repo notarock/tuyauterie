@@ -39,7 +39,6 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            // Use tuyauterie-files if provided, otherwise fall back to tuyauterie-path for backward compatibility
             const filesInput = '${{ inputs.tuyauterie-files }}';
             const pathInput = '${{ inputs.tuyauterie-path }}';
             
@@ -58,149 +57,72 @@ jobs:
   context:
     runs-on: ${{ inputs.github-runner }}
     needs: setup
-    strategy:
-      matrix:
-        include: ${{ fromJSON(needs.setup.outputs.tuyauterie-files) }}
-    name: ${{ matrix.include }}
     outputs:
-      build_type_${{ matrix.include }}: ${{ steps.context.outputs.build_type }}
-      build_docker_${{ matrix.include }}: ${{ steps.context.outputs.build_docker }}
-      publish_${{ matrix.include }}: ${{ steps.context.outputs.publish }}
-      upload_artifacts_${{ matrix.include }}: ${{ steps.context.outputs.upload_artifacts }}
-      is_tag_${{ matrix.include }}: ${{ steps.context.outputs.is_tag }}
-      tag_name_${{ matrix.include }}: ${{ steps.context.outputs.tag_name }}
-      artifact_name_${{ matrix.include }}: ${{ steps.context.outputs.artifact_name }}
-      artifact_base_name_${{ matrix.include }}: ${{ steps.context.outputs.artifact_base_name }}
-      project_path_${{ matrix.include }}: ${{ steps.context.outputs.project_path }}
-      gitops-deployment_${{ matrix.include }}: ${{ steps.context.outputs.gitops-deployment }}
-      gitops-target-repository_${{ matrix.include }}: ${{ steps.context.outputs.gitops-target-repository }}
-      gitops-target-manifest_${{ matrix.include }}: ${{ steps.context.outputs.gitops-target-manifest }}
-    permissions:
-      contents: read
-      id-token: write
+      files: ${{ steps.parse.outputs.files }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Set up js-yaml
         run: npm install js-yaml
 
-      - id: context
-        name: Read build type from .tuyauterie.yaml
+      - id: parse
+        name: Parse all tuyauterie files
         uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
-
             const yaml = require('./node_modules/js-yaml');
-            const path = '${{ matrix.include }}';
-
-            const fileContent = fs.readFileSync(path, 'utf8');
-            const config = yaml.load(fileContent);
+            const files = JSON.parse('${{ needs.setup.outputs.tuyauterie-files }}');
             
-            console.log(`Parsed configuration: ${JSON.stringify(config)}`);
-
-            const buildType = config?.build?.type ?? 'unknown';
-
-            const projectPath = config?.build?.path ?? '.';
-            core.setOutput('project_path', projectPath);
-
-            const uploadArtifacts = config?.build?.upload_artifacts ?? false;
-            core.setOutput('upload_artifacts', uploadArtifacts);
-
-            console.log(`Detected build type: ${buildType}`);
-            core.setOutput('build_type', buildType);
+            const configs = {};
             
-            const Dockerfile = config?.build?.dockerfile ?? 'Dockerfile';
-            if (fs.existsSync(Dockerfile)) {
-              console.log(`Dockerfile found: ${Dockerfile}, build_docker set to true`);
-              core.setOutput('build_docker', "true");
-            } else {
-              console.log(`Dockerfile not found: ${Dockerfile}, build_docker set to false`);
-              core.setOutput('build_docker', "false");
+            for (const file of files) {
+              const sanitized = file.replace(/[^a-zA-Z0-9]/g, '_');
+              try {
+                const content = fs.readFileSync(file, 'utf8');
+                const config = yaml.load(content);
+                
+                const buildType = config?.build?.type ?? 'unknown';
+                const projectPath = config?.build?.path ?? '.';
+                const uploadArtifacts = config?.build?.upload_artifacts ?? false;
+                const Dockerfile = config?.build?.dockerfile ?? 'Dockerfile';
+                const buildDocker = fs.existsSync(Dockerfile);
+                const releaseOnTag = config?.release?.on_tag ?? true;
+                const artifactBaseName = config?.build?.artifact_name ?? '${{ github.event.repository.name }}';
+                
+                const ref = process.env.GITHUB_REF ?? '';
+                const isTag = ref.startsWith('refs/tags/');
+                const tagName = isTag ? ref.replace('refs/tags/', '') : '';
+                const publishing = releaseOnTag && isTag;
+                
+                const enableGitops = config?.deploy?.gitops?.enable ?? false;
+                const gitopsDeployment = enableGitops && publishing;
+                const gitopsRepo = config?.deploy?.gitops?.repository ?? '';
+                const gitopsManifest = config?.deploy?.gitops?.manifest ?? '';
+                
+                configs[sanitized] = {
+                  file,
+                  build_type: buildType,
+                  build_docker: buildDocker,
+                  publish: publishing,
+                  upload_artifacts: uploadArtifacts,
+                  is_tag: isTag,
+                  tag_name: tagName,
+                  artifact_name: publishing ? `${artifactBaseName}-${tagName}` : artifactBaseName,
+                  artifact_base_name: artifactBaseName,
+                  project_path: projectPath,
+                  gitops_deployment: gitopsDeployment,
+                  gitops_target_repository: gitopsRepo,
+                  gitops_target_manifest: gitopsManifest
+                };
+                
+                console.log(`Parsed ${file}: ${JSON.stringify(configs[sanitized])}`);
+              } catch (e) {
+                console.error(`Error parsing ${file}: ${e.message}`);
+              }
             }
             
-            const event = '${{ inputs.github-event }}';
-
-            const releaseOnTag = config?.release?.on_tag ?? true;
-
-            console.log(`GitHub Ref: ${process.env.GITHUB_REF}`);
-            
-            const ref = process.env.GITHUB_REF ?? '';
-            const isTag = ref.startsWith('refs/tags/');
-            const tagName = isTag ? ref.replace('refs/tags/', '') : "";
-            core.setOutput('is_tag', isTag);
-            core.setOutput('tag_name', tagName);
-
-            const artifactBaseName = config?.build?.artifact_name ?? '${{ github.event.repository.name }}';
-            core.setOutput('artifact_base_name', artifactBaseName);
-            if (isTag) {
-              core.setOutput('artifact_name', `${artifactBaseName}-${tagName}`);
-            } else {
-              core.setOutput('artifact_name', artifactBaseName);
-            }
-
-            var publishing = false;
-            if (releaseOnTag && isTag) {
-              console.log(`Detected event: ${event}`);
-              console.log(`Release on tag enabled, 'publish' set to true for Docker build`);
-              core.setOutput('publish', "true");
-              publishing = true;
-            } else {
-              console.log(`Detected event: ${event}`);
-              console.log(`Condition for release unmet, 'publish' set to false for Docker build`);
-              core.setOutput('publish', "false");
-              publishing = false;
-            }
-            
-            const deploy = config?.deploy ?? {};
-
-            const enableDeployGitops = config?.deploy?.gitops.enable ?? false;
-            if (enableDeployGitops && publishing) {
-              console.log(`GitOps deployment enabled`);
-
-              const gitopsTargetRepository = config?.deploy?.gitops?.repository ?? '';
-              const gitopsTargetManifest = config?.deploy?.gitops?.manifest ?? '';
-
-              core.setOutput('gitops-deployment', "true");
-              core.setOutput('gitops-target-repository', gitopsTargetRepository);
-              core.setOutput('gitops-target-manifest', gitopsTargetManifest);
-            } else {
-              console.log(`Not executing GitOps deployment`);
-              core.setOutput('gitops-deployment', "false");
-            }
-
-      - id: Summary
-        name: Write GitHub Summary
-        uses: actions/github-script@v8
-        with:
-          script: |
-            core.summary
-              .addHeading(`🔧 Tuyauterie Build Context: ${{ matrix.include }}`)
-              .addTable([
-                ['Key', 'Value'],
-                ['Git Ref', process.env.GITHUB_REF],
-                ['Commit SHA', process.env.GITHUB_SHA],
-                ['Actor', process.env.GITHUB_ACTOR],
-                ['Runner OS', '${{ runner.os }}'],
-                ['Job Name', `${{ env.GITHUB_JOB }} (matrix: ${{ matrix.include }})`],
-                ['Workflow', process.env.GITHUB_WORKFLOW],
-                ['Repository', process.env.GITHUB_REPOSITORY],
-                ['Run ID', process.env.GITHUB_RUN_ID],
-                ['Build Type', '${{ steps.context.outputs.build_type }}'],
-                ['Build Path', '${{ steps.context.outputs.project_path }}'],
-                ['Docker Build', '${{ steps.context.outputs.build_docker }}'],
-                ['Publish', '${{ steps.context.outputs.publish }}'],
-                ['Artifact Name', '${{ steps.context.outputs.artifact_name }}'],
-                ['Upload Artifact', '${{ steps.context.outputs.upload_artifacts }}'],
-                ['GitHub Event', '${{ inputs.github-event }}'],
-                ['Is Tag', '${{ steps.context.outputs.is_tag }}'],
-                ['Tag Name', '${{ steps.context.outputs.tag_name }}'],
-                ['GitOps Deployment', '${{ steps.context.outputs.gitops-deployment }}'],
-                ['GitOps Target Repository', '${{ steps.context.outputs.gitops-target-repository }}'],
-                ['GitOps Target Manifest', '${{ steps.context.outputs.gitops-target-manifest }}']
-              ])
-              .addLink('View this run', `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`)
-              .write();
+            core.setOutput('files', JSON.stringify(configs));
 
   build:
     needs: [setup, context]
@@ -215,57 +137,102 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Get config for this matrix job
+        id: config
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const configs = JSON.parse('${{ needs.context.outputs.files }}');
+            const sanitized = '${{ matrix.include }}'.replace(/[^a-zA-Z0-9]/g, '_');
+            const config = configs[sanitized];
+            if (!config) {
+              core.setFailed('No config found for ${{ matrix.include }}');
+            }
+            core.setOutput('build_type', config.build_type);
+            core.setOutput('project_path', config.project_path);
+            core.setOutput('publish', config.publish);
+            core.setOutput('upload_artifacts', config.upload_artifacts);
+            core.setOutput('artifact_name', config.artifact_name);
+
       - name: Build (Golang)
-        if: needs.context.outputs.build_type_${{ matrix.include }} == 'golang'
+        if: steps.config.outputs.build_type == 'golang'
         uses: notarock/tuyauterie/.github/actions/build-golang@main
         with:
-          project-path: ${{ needs.context.outputs.project_path_${{ matrix.include }} }}
-          upload-artifact: ${{ needs.context.outputs.publish_${{ matrix.include }} == 'true' && needs.context.outputs.upload_artifacts_${{ matrix.include }} == 'true' }}
-          artifact-name: ${{ needs.context.outputs.artifact_name_${{ matrix.include }} }}
+          project-path: ${{ steps.config.outputs.project_path }}
+          upload-artifact: ${{ steps.config.outputs.publish == 'true' && steps.config.outputs.upload_artifacts == 'true' }}
+          artifact-name: ${{ steps.config.outputs.artifact_name }}
 
       - name: Build (Python)
-        if: needs.context.outputs.build_type_${{ matrix.include }} == 'python'
+        if: steps.config.outputs.build_type == 'python'
         uses: notarock/tuyauterie/.github/actions/build-python@main
         with:
-          project-path: ${{ needs.context.outputs.project_path_${{ matrix.include }} }}
+          project-path: ${{ steps.config.outputs.project_path }}
 
       - name: Build (Nix)
-        if: needs.context.outputs.build_type_${{ matrix.include }} == 'nix'
+        if: steps.config.outputs.build_type == 'nix'
         uses: notarock/tuyauterie/.github/actions/build-nix@main
         with:
-          project-path: ${{ needs.context.outputs.project_path_${{ matrix.include }} }}
+          project-path: ${{ steps.config.outputs.project_path }}
 
       - name: Build (Node)
-        if: needs.context.outputs.build_type_${{ matrix.include }} == 'node'
+        if: steps.config.outputs.build_type == 'node'
         uses: notarock/tuyauterie/.github/actions/build-node@main
         with:
-          project-path: ${{ needs.context.outputs.project_path_${{ matrix.include }} }}
-          upload-artifact: ${{ needs.context.outputs.publish_${{ matrix.include }} == 'true' && needs.context.outputs.upload_artifacts_${{ matrix.include }} == 'true' }}
-          artifact-name: ${{ needs.context.outputs.artifact_name_${{ matrix.include }} }}
+          project-path: ${{ steps.config.outputs.project_path }}
+          upload-artifact: ${{ steps.config.outputs.publish == 'true' && steps.config.outputs.upload_artifacts == 'true' }}
+          artifact-name: ${{ steps.config.outputs.artifact_name }}
 
   build-docker:
     needs: [setup, context, build]
-    if: ${{ needs.context.outputs.build_docker_${{ matrix.include }} == 'true' }}
     strategy:
       matrix:
         include: ${{ fromJSON(needs.setup.outputs.tuyauterie-files) }}
     name: ${{ matrix.include }}
-    uses: ./.github/workflows/build-docker.yml
-    with:
-      publish-image: ${{ needs.context.outputs.publish_${{ matrix.include }} == 'true' }}
-      upload-artifact: ${{ needs.context.outputs.publish_${{ matrix.include }} == 'true' && needs.context.outputs.upload_artifacts_${{ matrix.include }} == 'true' }}
-      artifact-name: ${{ needs.context.outputs.artifact_base_name_${{ matrix.include }} }}
-      project-path: ${{ needs.context.outputs.project_path_${{ matrix.include }} }}
-      github-runner: ${{ inputs.github-runner }}
-    secrets:
-      docker-registry-token: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get config for this matrix job
+        id: config
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const configs = JSON.parse('${{ needs.context.outputs.files }}');
+            const sanitized = '${{ matrix.include }}'.replace(/[^a-zA-Z0-9]/g, '_');
+            const config = configs[sanitized];
+            if (!config) {
+              core.setFailed('No config found for ${{ matrix.include }}');
+            }
+            if (!config.build_docker) {
+              core.setOutput('skip', 'true');
+              return;
+            }
+            core.setOutput('build_docker', 'true');
+            core.setOutput('publish', config.publish);
+            core.setOutput('upload_artifacts', config.upload_artifacts);
+            core.setOutput('artifact_base_name', config.artifact_base_name);
+            core.setOutput('project_path', config.project_path);
+
+      - name: Build and push Docker image
+        if: steps.config.outputs.build_docker == 'true'
+        uses: ./.github/workflows/build-docker.yml
+        with:
+          publish-image: ${{ steps.config.outputs.publish == 'true' }}
+          upload-artifact: ${{ steps.config.outputs.publish == 'true' && steps.config.outputs.upload_artifacts == 'true' }}
+          artifact-name: ${{ steps.config.outputs.artifact_base_name }}
+          project-path: ${{ steps.config.outputs.project_path }}
+          github-runner: ${{ inputs.github-runner }}
+        secrets:
+          docker-registry-token: ${{ secrets.GITHUB_TOKEN }}
 
   release-log:
     needs: [setup, context, build, build-docker]
     if: |
       always() &&
       needs.setup.result == 'success' &&
-      (needs.context.result == 'success' || needs.context.result == 'skipped') &&
+      needs.context.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped' || needs.build-docker.result == 'failure')
     runs-on: ${{ inputs.github-runner }}
@@ -281,7 +248,6 @@ jobs:
           git fetch --tags
           mkdir -p reports
           
-          # Get all tuyauterie files from setup output
           files=$(jq -r '.[]' <<< '${{ needs.setup.outputs.tuyauterie-files }}')
           
           echo "# Commits Since Last Tag (All Tuyauterie Files)" > reports/commits-since-last-tag.txt
@@ -320,36 +286,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Collect GitOps configs from all matrix jobs
+      - name: Collect GitOps configs from context
         uses: actions/github-script@v8
         with:
           script: |
-            const fs = require('fs');
-            
-            const contextOutputs = JSON.parse('${{ toJSON(needs.context.outputs) }}');
+            const configs = JSON.parse('${{ needs.context.outputs.files }}');
             const files = JSON.parse('${{ needs.setup.outputs.tuyauterie-files }}');
             
             const gitopsConfigs = {};
             
-            // Parse outputs with suffix pattern: gitops-deployment_.tuyauterie.yaml
             for (const file of files) {
-              const sanitizedFile = file.replace(/[^a-zA-Z0-9]/g, '_');
+              const sanitized = file.replace(/[^a-zA-Z0-9]/g, '_');
+              const config = configs[sanitized];
               
-              const deployment = contextOutputs[`gitops-deployment_${sanitizedFile}`];
-              const repository = contextOutputs[`gitops-target-repository_${sanitizedFile}`];
-              const manifest = contextOutputs[`gitops-target-manifest_${sanitizedFile}`];
-              const version = contextOutputs[`tag_name_${sanitizedFile}`] || 'latest';
-              
-              if (deployment === 'true' && repository && manifest) {
-                if (!gitopsConfigs[repository]) {
-                  gitopsConfigs[repository] = { repository, manifests: [] };
+              if (config && config.gitops_deployment && config.gitops_target_repository && config.gitops_target_manifest) {
+                const repo = config.gitops_target_repository;
+                if (!gitopsConfigs[repo]) {
+                  gitopsConfigs[repo] = { repository: repo, manifests: [] };
                 }
-                gitopsConfigs[repository].manifests.push({ manifest, version, file });
+                gitopsConfigs[repo].manifests.push({
+                  manifest: config.gitops_target_manifest,
+                  version: config.tag_name || 'latest',
+                  file: file
+                });
               }
             }
             
             const uniqueConfigs = Object.values(gitopsConfigs);
             
+            const fs = require('fs');
             fs.writeFileSync('gitops-configs.json', JSON.stringify(uniqueConfigs, null, 2));
             console.log(`Found ${uniqueConfigs.length} unique GitOps repositories to update`);
             console.log(JSON.stringify(uniqueConfigs, null, 2));
@@ -365,7 +330,6 @@ jobs:
             exit 0
           fi
           
-          # Get unique repositories
           repos=$(jq -r '.[].repository' gitops-configs.json | sort -u)
           
           for repo in $repos; do
@@ -381,7 +345,6 @@ jobs:
             branch="tuyauterie-update-$(date +%Y%m%d-%H%M%S)"
             git checkout -b "$branch"
             
-            # Get manifests for this repo
             jq -r --arg repo "$repo" '.[] | select(.repository == $repo) | .manifests[] | "\(.file):\(.manifest):\(.version)"' gitops-configs.json | while IFS=: read -r file manifest version; do
               if [ -f "$manifest" ]; then
                 echo "Updating $manifest (from $file) to version $version"
