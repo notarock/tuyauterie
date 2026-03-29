@@ -78,7 +78,8 @@ jobs:
           script: |
             const fs = require('fs');
             const yaml = require('./node_modules/js-yaml');
-            const files = JSON.parse('${{ needs.setup.outputs.tuyauterie-files }}');
+            const matrix = JSON.parse('${{ needs.setup.outputs.matrix }}');
+            const files = matrix.map(m => m.file);
             
             const configs = {};
             
