@@ -34,6 +34,8 @@ jobs:
     outputs:
       matrix: ${{ steps.parse.outputs.matrix }}
       files: ${{ steps.parse.outputs.files }}
+      publishing: ${{ steps.parse.outputs.publishing }}
+      gitops_deployment: ${{ steps.parse.outputs.gitops_deployment }}
     steps:
       - uses: actions/checkout@v6
 
@@ -115,8 +117,13 @@ jobs:
               }
             }
             
+            const publishing = Object.values(configs).some(c => c.publish);
+            const gitopsDeployment = Object.values(configs).some(c => c.gitops_deployment);
+
             core.setOutput('matrix', JSON.stringify(matrix));
             core.setOutput('files', JSON.stringify(configs));
+            core.setOutput('publishing', String(publishing));
+            core.setOutput('gitops_deployment', String(gitopsDeployment));
             
             core.setOutput('files', JSON.stringify(configs));
 
@@ -259,6 +266,7 @@ jobs:
     needs: [setup, build, build-docker]
     if: |
       always() &&
+      needs.setup.outputs.publishing == 'true' &&
       needs.setup.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped' || needs.build-docker.result == 'failure')
@@ -306,7 +314,7 @@ jobs:
 
   deployment-gitops:
     needs: [setup, build, build-docker, release-log]
-    if: always()
+    if: always() && needs.setup.outputs.gitops_deployment == 'true'
     runs-on: ${{ inputs.github-runner }}
     permissions:
       contents: read
