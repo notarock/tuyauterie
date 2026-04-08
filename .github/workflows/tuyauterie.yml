@@ -81,6 +81,7 @@ jobs:
                 const projectPath = config?.build?.path ?? '.';
                 const uploadArtifacts = config?.build?.upload_artifacts ?? false;
                 const testCmd = config?.build?.test_cmd ?? '';
+                const preBuildCmd = config?.build?.pre_build_cmd ?? '';
                 const Dockerfile = config?.build?.dockerfile ?? 'Dockerfile';
                 const buildDocker = fs.existsSync(Dockerfile);
                 const releaseOnTag = config?.release?.on_tag ?? true;
@@ -105,6 +106,7 @@ jobs:
                   publish: publishing,
                   upload_artifacts: uploadArtifacts,
                   test_cmd: testCmd,
+                  pre_build_cmd: preBuildCmd,
                   is_tag: isTag,
                   tag_name: tagName,
                   artifact_name: (publishing && tagName) ? `${artifactBaseName}-${tagName}` : artifactBaseName,
@@ -168,6 +170,7 @@ jobs:
             core.setOutput('publish', config.publish);
             core.setOutput('upload_artifacts', config.upload_artifacts);
             core.setOutput('test_cmd', config.test_cmd);
+            core.setOutput('pre_build_cmd', config.pre_build_cmd ?? '');
             core.setOutput('artifact_name', config.artifact_name);
 
       - name: Build (Golang)
@@ -177,6 +180,7 @@ jobs:
           project-path: ${{ steps.config.outputs.project_path }}
           upload-artifact: ${{ steps.config.outputs.publish == 'true' && steps.config.outputs.upload_artifacts == 'true' }}
           artifact-name: ${{ steps.config.outputs.artifact_name }}
+          pre-build-cmd: ${{ steps.config.outputs.pre_build_cmd }}
 
       - name: Build (Python)
         if: steps.config.outputs.build_type == 'python'
