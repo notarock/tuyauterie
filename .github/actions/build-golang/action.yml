@@ -18,6 +18,10 @@ inputs:
     description: 'Path to the Go project within the repository'
     required: false
     default: '.'
+  pre-build-cmd:
+    description: 'Command to run before building (e.g., npm install && npm run build)'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -26,6 +30,12 @@ runs:
       uses: actions/setup-go@v6
       with:
         go-version: '${{ inputs.go-version }}'
+
+    - name: Pre-build
+      if: ${{ inputs.pre-build-cmd != '' }}
+      working-directory: ${{ inputs.project-path }}
+      run: ${{ inputs.pre-build-cmd }}
+      shell: bash
 
     - name: Lint
       working-directory: ${{ inputs.project-path }}
