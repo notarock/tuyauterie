@@ -46,7 +46,7 @@ jobs:
 
       - id: parse
         name: Parse all tuyauterie files
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -156,7 +156,7 @@ jobs:
 
       - name: Get config for this matrix job
         id: config
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const configs = JSON.parse('${{ needs.setup.outputs.files }}');
@@ -223,7 +223,7 @@ jobs:
 
       - name: Get config for this matrix job
         id: config
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const configs = JSON.parse('${{ needs.setup.outputs.files }}');
