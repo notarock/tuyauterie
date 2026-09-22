@@ -19,7 +19,7 @@ runs:
       with:
         python-version: '${{ inputs.python-version }}'
 
-    - uses: astral-sh/ruff-action@v3
+    - uses: astral-sh/ruff-action@v4.1.0
 
     - name: Install pytest
       working-directory: ${{ inputs.project-path }}
