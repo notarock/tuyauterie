@@ -5,7 +5,7 @@ inputs:
   go-version:
     description: 'The Go version to use'
     required: false
-    default: '1.25'
+    default: '1.26'
   upload-artifact:
     description: Whether to upload the binary as a GHA Artifact.
     required: false
